@@ -132,6 +132,12 @@ namespace Snapper.Managers
             
             List<FileReplacement> replacements = GetFileReplacementsForCharacter(character);
 
+            Logger.Debug($"HELLO FIND THIS!!! {replacements.Count} replacements");
+            foreach(var replacement in replacements)
+            {
+                Logger.Debug(replacement.GamePaths[0]);
+            }
+
             Logger.Debug($"Got {replacements.Count} replacements");
 
             foreach(var replacement in replacements)
