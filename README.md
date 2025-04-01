@@ -21,4 +21,8 @@ Add this custom repo to Dalamud (check their documentation if you’re unfamilia
    - Best performance comes from using [Brio](https://github.com/AsgardXIV/Brio)-spawned actors. I test against those, and if you load onto anything else, you're on your own. Fixes for that won’t be a priority.
 
 ### Disclaimer:
-Don't use this mod for creepy, inappropriate, or goonish things. This tool exists for character customization and mod sharing, so for the love of all that is good in this world, use it like a reasonable adult.
+If you use this mod, use it in good faith. Don’t use this for creepy, inappropriate, or goonish nonsense. This tool was built for character customization and mod sharing. Nothing more, nothing less. It’s here to make it easier to preserve, export, and share the way a character looks, especially among friends or within a private modding circle. That’s it.
+
+For the love of all that’s decent, use it like a reasonable adult. If your first instinct is to twist this tool into something it was never meant for, you’re part of the problem. Don’t be that person. Just because the technology allows something doesn’t mean you should do it.
+
+If you’re upset by the existence of this mod, please understand this: it’s being maintained with honest, constructive intentions. Its purpose is utility, not exploitation. It’s about preserving creativity and not crossing lines. Yes, I maintain this project, but no, I’m not responsible for how individuals choose to use it. I can’t control what people do once it’s in their hands, and I won’t pretend to. What I can do is make the tool accessible, useful, and transparent about what it’s meant for. Beyond that, the responsibility lies with the user.
