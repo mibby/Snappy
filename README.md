@@ -9,7 +9,7 @@ XIVSnapper is a plugin that saves and loads your character's current appearanceâ
 ### Where to get it:
 Add this custom repo to Dalamud (check their documentation if youâ€™re unfamiliar with that process):
 
-`https://raw.githubusercontent.com/brendoncintas/plugins/main/PluginMaster.json`
+`https://raw.githubusercontent.com/brendoncintas/plugins/main/Plugins.json`
 
 ### How to use it:
 1. **Set a working directory** in the settings menu.
