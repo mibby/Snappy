@@ -1,6 +1,7 @@
 # XIVSnapper
 
-### A forked and maintained mod originally based on work by @eqbot, and possibly once managed by @ViviAshe. Since there hasn't been much activity from ViviAshe lately, I’ve taken it upon myself to keep it going. Call me the de facto maintainer.
+### A forked and maintained mod originally based on work by @eqbot, and previously managed by @ViviAshe. 
+(Since there hasn't been much activity from ViviAshe lately, I’ve taken it upon myself to keep it going. Call me the de facto maintainer.)
 
 ### What is it?
 XIVSnapper is a plugin that saves and loads your character's current appearance—including all applied mods. It's made for those who want to export their character *exactly as-is* into a single-character mod collection. Perfect for sharing mod setups with friends without relying on MCDF. Your friends can take your snapshot and make their own adjustments, no restrictions.
