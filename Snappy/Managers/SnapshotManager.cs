@@ -19,6 +19,7 @@ using System.IO;
 using System.Text.Json;
 using Snapper.Interop;
 using Dalamud.Utility;
+using System.Text.Encodings.Web;
 
 namespace Snapper.Managers
 {
@@ -43,7 +44,6 @@ namespace Snapper.Managers
             }
             tempCollections.Clear();
         }
-
         public bool AppendSnapshot(ICharacter character)
         {
             var charaName = character.Name.TextValue;
@@ -105,7 +105,29 @@ namespace Snapper.Managers
             //This may end up shooting me in the foot, but a newer snapshot should contain the info of an older one.
             snapshotInfo.ManipulationString = Plugin.IpcManager.PenumbraGetGameObjectMetaManipulations(character.ObjectIndex);
 
-            string infoJsonWrite = JsonSerializer.Serialize(snapshotInfo);
+            // Save the glamourer string to a new file
+            var glamourerString = Plugin.IpcManager.GlamourerGetCharacterCustomization(character.Address);
+            if (!string.IsNullOrEmpty(glamourerString))
+            {
+                int fileIndex = 1;
+                string glamourerFilePath;
+                do
+                {
+                    glamourerFilePath = Path.Combine(path, $"glamourer-{fileIndex}.json");
+                    fileIndex++;
+                } while (File.Exists(glamourerFilePath));
+
+                File.WriteAllText(glamourerFilePath, JsonSerializer.Serialize(glamourerString, new JsonSerializerOptions
+                {
+                    Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                }));
+            }
+
+            var options = new JsonSerializerOptions
+            {
+                Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+            };
+            string infoJsonWrite = JsonSerializer.Serialize(snapshotInfo, options);
             File.WriteAllText(Path.Combine(path, "snapshot.json"), infoJsonWrite);
 
             return true;
@@ -114,33 +136,29 @@ namespace Snapper.Managers
         public bool SaveSnapshot(ICharacter character)
         {
             var charaName = character.Name.TextValue;
-            var path = Path.Combine(Plugin.Configuration.WorkingDirectory,charaName);
+            var path = Path.Combine(Plugin.Configuration.WorkingDirectory, charaName);
             SnapshotInfo snapshotInfo = new();
 
             if (Directory.Exists(path))
             {
-                Logger.Warn("Snapshot already existed, deleting");
-                Directory.Delete(path, true);
+                Logger.Warn("Snapshot already existed. Running in append mode.");
+                return AppendSnapshot(character);
             }
             Directory.CreateDirectory(path);
 
-            //Get glamourer string
             snapshotInfo.GlamourerString = Plugin.IpcManager.GlamourerGetCharacterCustomization(character.Address);
             Logger.Debug($"Got glamourer string {snapshotInfo.GlamourerString}");
 
-            //Save all file replacements
-            
             List<FileReplacement> replacements = GetFileReplacementsForCharacter(character);
 
-            Logger.Debug($"HELLO FIND THIS!!! {replacements.Count} replacements");
-            foreach(var replacement in replacements)
+            foreach (var replacement in replacements)
             {
                 Logger.Debug(replacement.GamePaths[0]);
             }
 
             Logger.Debug($"Got {replacements.Count} replacements");
 
-            foreach(var replacement in replacements)
+            foreach (var replacement in replacements)
             {
                 FileInfo replacementFile = new FileInfo(replacement.ResolvedPath);
                 FileInfo fileToCreate = new FileInfo(Path.Combine(path, replacement.GamePaths[0]));
@@ -151,21 +169,21 @@ namespace Snapper.Managers
 
             snapshotInfo.ManipulationString = Plugin.IpcManager.PenumbraGetGameObjectMetaManipulations(character.ObjectIndex);
 
-            //Get customize+ data, if applicable
             if (Plugin.IpcManager.CheckCustomizePlusApi())
             {
                 Logger.Debug("C+ api loaded");
                 var data = Plugin.IpcManager.GetCustomizePlusScaleFromCharacter(character);
-                //Logger.Info(Plugin.DalamudUtil.PlayerName);
-                //Logger.Info(character.Name.TextValue);
-                //Logger.Info($"Cust+: {data}");
                 if (!data.IsNullOrEmpty())
                 {
                     File.WriteAllText(Path.Combine(path, "customizePlus.json"), data);
                 }
             }
 
-            string infoJson = JsonSerializer.Serialize(snapshotInfo);
+            var options = new JsonSerializerOptions
+            {
+                Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+            };
+            string infoJson = JsonSerializer.Serialize(snapshotInfo, options);
             File.WriteAllText(Path.Combine(path, "snapshot.json"), infoJson);
 
             return true;
@@ -384,27 +402,26 @@ namespace Snapper.Managers
 
         private void AddReplacementsFromTexture(string texPath, List<FileReplacement> replacements, int objIdx, int inheritanceLevel = 0, bool doNotReverseResolve = true)
         {
-            Logger.Debug($"Adding replacement for texture {texPath}");
-            if (string.IsNullOrEmpty(texPath)) return;
+            if (string.IsNullOrEmpty(texPath) || texPath.Any(c => c < 32 || c > 126)) // Check for invalid characters
+            {
+                Logger.Warn($"Invalid texture path: {texPath}");
+                return;
+            }
 
-            if(replacements.Any(c => c.GamePaths.Contains(texPath, StringComparer.Ordinal)))
+            Logger.Debug($"Adding replacement for texture {texPath}");
+
+            if (replacements.Any(c => c.GamePaths.Contains(texPath, StringComparer.Ordinal)))
             {
                 Logger.Debug($"Replacements already contain {texPath}, skipping");
                 return;
             }
 
             var texFileReplacement = CreateFileReplacement(texPath, objIdx, doNotReverseResolve);
-            //DebugPrint(texFileReplacement, objectKind, "Texture", inheritanceLevel);
-
             AddFileReplacement(replacements, texFileReplacement);
 
             if (texPath.Contains("/--", StringComparison.Ordinal)) return;
 
-            var texDx11Replacement =
-                CreateFileReplacement(texPath.Insert(texPath.LastIndexOf('/') + 1, "--"), objIdx, doNotReverseResolve);
-
-            //DebugPrint(texDx11Replacement, objectKind, "Texture (DX11)", inheritanceLevel);
-
+            var texDx11Replacement = CreateFileReplacement(texPath.Insert(texPath.LastIndexOf('/') + 1, "--"), objIdx, doNotReverseResolve);
             AddFileReplacement(replacements, texDx11Replacement);
         }
 

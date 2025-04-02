@@ -15,7 +15,7 @@ public class ConfigWindow : Window, IDisposable
 
     //ImGuiWindowFlags.NoResize
     public ConfigWindow(Plugin plugin) : base(
-        "Snapper Settings",
+        "Snappy Settings",
          ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoScrollbar |
         ImGuiWindowFlags.NoScrollWithMouse | ImGuiWindowFlags.NoResize)
     {
@@ -31,13 +31,13 @@ public class ConfigWindow : Window, IDisposable
     public override void Draw()
     {
         var workingDirectory = Configuration.WorkingDirectory;
-        ImGui.InputText("Working Folder", ref workingDirectory, 255, ImGuiInputTextFlags.ReadOnly);
+        ImGui.InputText("Export Folder", ref workingDirectory, 255, ImGuiInputTextFlags.ReadOnly);
         ImGui.SameLine();
         ImGui.PushFont(UiBuilder.IconFont);
         string folderIcon = FontAwesomeIcon.Folder.ToIconString();
         if (ImGui.Button(folderIcon))
         {
-            FileDialogManager.OpenFolderDialog("Snapper working directory", (status, path) =>
+            FileDialogManager.OpenFolderDialog("Where do you want to save your snaps?", (status, path) =>
             {
                 if (!status)
                 {
@@ -53,7 +53,7 @@ public class ConfigWindow : Window, IDisposable
         }
         ImGui.PopFont();
         
-        ImGui.Text("Glamourer design fallback string (Temp until GlamourerAPI workaround)");
+        ImGui.Text("Glamourer design fallback string");
         string fallbackString = Configuration.FallBackGlamourerString;
         ImGui.InputText("##input-format", ref fallbackString, 2500);
         if (fallbackString != Configuration.FallBackGlamourerString)
@@ -61,5 +61,10 @@ public class ConfigWindow : Window, IDisposable
             Configuration.FallBackGlamourerString = fallbackString;
             Configuration.Save();
         }
+        // Add version label at the bottom
+        ImGui.Spacing();
+        ImGui.Separator();
+        ImGui.Text($"Snappy version {Configuration.Version}. Made with <3");
     }
 }
+
