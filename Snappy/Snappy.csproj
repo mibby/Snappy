@@ -5,7 +5,7 @@
     <Version>0.1.0</Version>
     <Description>Snappy</Description>
     <Copyright></Copyright>
-    <PackageProjectUrl>https://github.com/brendoncintas/XIVSnapper</PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/astrodoobs/XIVSnapper</PackageProjectUrl>
   </PropertyGroup>
 
   <PropertyGroup>
