@@ -6,7 +6,7 @@
 ### What is it?
 Ever had a friend ask you to share your character’s appearance because it looked especially sharp that day - only to realize you’d have to dig through your mod list or settle for the limited Mare Character Data Format (MCDF)? Snappy solves that problem.
 
-Snappy is a plugin designed to save and load your character’s full appearance—mods and all—with a single click. No restrictions, no compromises. It creates a single-character mod collection that captures everything exactly as it is. That means you can share your setup with friends, and they can load your character just as you see it, then customize it however they like. No more relying on MCDF. Just a clean, accurate snapshot of your character, ready to use.
+Snappy is a plugin designed to save and load your character’s full appearance - mods and all - with a single click. No restrictions, no compromises. It creates a single-character mod collection that captures everything exactly as it is. That means you can share your setup with friends, and they can load your character just as you see it, then customize it however they like. No more relying on MCDF. Just a clean, accurate snapshot of your character, ready to use.
 
 ### Where to get it:
 Add this custom repo to Dalamud (check their documentation if you’re unfamiliar with that process):
