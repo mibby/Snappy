@@ -311,48 +311,65 @@ public class IpcManager : IDisposable
 
     public string GlamourerGetCharacterCustomization(IntPtr character)
     {
-        object temp = "";
-        object tempGameObj = "";
-        Logger.Debug("Getting character customization");
         if (!CheckGlamourerApi()) return string.Empty;
+
+        const int maxRetries = 3;
+        int attempt = 0;
+        string glamourerString = string.Empty;
+
+        while (attempt < maxRetries)
+        {
+            try
+            {
+                var gameObj = _dalamudUtil.CreateGameObject(character);
+                if (gameObj is ICharacter c)
+                {
+                    Logger.Debug($"Attempting to get customizations for {c.Name} with ObjectIndex {c.ObjectIndex}");
+                    (GlamourerApiEc apiec, string result) = _glamourerGetAllCustomization!.Invoke(c.ObjectIndex);
+
+                    if (!string.IsNullOrEmpty(result))
+                    {
+                        glamourerString = result;
+                        break;
+                    }
+                    else
+                    {
+                        Logger.Warn("Glamourer returned an empty customization string, retrying...");
+                    }
+                }
+                else
+                {
+                    Logger.Warn("Game object is not an ICharacter or could not retrieve customization data.");
+                    break;
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error occurred while getting customizations: {ex.Message}, retrying...");
+            }
+
+            attempt++;
+            System.Threading.Thread.Sleep(100); // Wait before retrying
+        }
+
+        if (string.IsNullOrEmpty(glamourerString))
+        {
+            Logger.Warn("Failed to get a valid glamourer string after multiple attempts, using fallback.");
+            glamourerString = _configuration.FallBackGlamourerString;
+        }
+
+        byte[] bytes;
         try
         {
-            var gameObj = _dalamudUtil.CreateGameObject(character);
-            if (gameObj is ICharacter c)
-            {
-                Logger.Debug($"Attempting to get customizations for {c.Name} with ObjectIndex {c.ObjectIndex}");
-                (GlamourerApiEc apiec, string glamourerString) = _glamourerGetAllCustomization!.Invoke(c.ObjectIndex);
-                temp = glamourerString;
-                tempGameObj = c.Name;
-                Logger.Debug($"Got glamourer customizations {glamourerString} for {c.Name}");
-                if (glamourerString.IsNullOrEmpty())
-                {
-                    glamourerString = _configuration.FallBackGlamourerString;
-                }
-
-                byte[] bytes;
-
-                try
-                {
-                    bytes = Convert.FromBase64String(glamourerString);
-                }
-                catch
-                {
-                    //if your backup string is not valid, you are getting my shitty lala.
-                    bytes = Convert.FromBase64String(backupBase64);
-                }
-                
-                return Convert.ToBase64String(bytes);
-            }
-            Logger.Warn("Game object is not an ICharacter or could not retrieve customization data.");
-            return string.Empty;
+            bytes = Convert.FromBase64String(glamourerString);
         }
-        catch (Exception ex)
+        catch
         {
-            Logger.Error($"Error occurred while getting customizations for {tempGameObj}. GlamourerString = '{temp}', Exception: {ex.Message}");
-            throw;
-            return string.Empty;
+            Logger.Warn("Invalid base64 string, using backup.");
+            bytes = Convert.FromBase64String(backupBase64);
         }
+
+        return Convert.ToBase64String(bytes);
     }
 
     public void GlamourerRevertCharacterCustomization(IGameObject character)

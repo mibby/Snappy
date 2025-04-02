@@ -1,11 +1,11 @@
 ﻿<Project Sdk="Dalamud.NET.Sdk/12.0.2">
   <PropertyGroup>
-    <Authors></Authors>
+    <Authors>eqbot, ViviAshe, astrodoobs</Authors>
     <Company></Company>
-    <Version>0.0.0.8</Version>
+    <Version>0.1.0</Version>
     <Description>Snapper</Description>
     <Copyright></Copyright>
-    <PackageProjectUrl>https://github.com/goatcorp/SamplePlugin</PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/brendoncintas/XIVSnapper</PackageProjectUrl>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -29,7 +29,6 @@
   </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="DalamudPackager" Version="12.0.0" />
         <PackageReference Include="Glamourer.Api" Version="2.4.1" />
         <PackageReference Include="lz4net" Version="1.0.15.93" />
         <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.3" />

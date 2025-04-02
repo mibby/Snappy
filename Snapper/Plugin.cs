@@ -21,12 +21,12 @@ namespace Snapper
 {
     public sealed class Plugin : IDalamudPlugin
     {
-        public string Name => "Snapper";
+        public string Name => "XIVSnapper";
         private const string CommandName = "/psnap";
 
         public Configuration Configuration { get; init; }
         public IObjectTable Objects { get; init; }
-        public WindowSystem WindowSystem = new("Snapper");
+        public WindowSystem WindowSystem = new("XIVSnapper");
         public FileDialogManager FileDialogManager = new FileDialogManager();
         public DalamudUtil DalamudUtil { get; init; }
         public IpcManager IpcManager { get; init; }
