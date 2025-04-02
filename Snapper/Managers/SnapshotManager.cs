@@ -44,7 +44,6 @@ namespace Snapper.Managers
             }
             tempCollections.Clear();
         }
-
         public bool AppendSnapshot(ICharacter character)
         {
             var charaName = character.Name.TextValue;
@@ -133,7 +132,6 @@ namespace Snapper.Managers
 
             return true;
         }
-
 
         public bool SaveSnapshot(ICharacter character)
         {

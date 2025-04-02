@@ -21,12 +21,12 @@ namespace Snapper
 {
     public sealed class Plugin : IDalamudPlugin
     {
-        public string Name => "XIVSnapper";
-        private const string CommandName = "/psnap";
+        public string Name => "Snappy";
+        private const string CommandName = "/snappy";
 
         public Configuration Configuration { get; init; }
         public IObjectTable Objects { get; init; }
-        public WindowSystem WindowSystem = new("XIVSnapper");
+        public WindowSystem WindowSystem = new("Snappy");
         public FileDialogManager FileDialogManager = new FileDialogManager();
         public DalamudUtil DalamudUtil { get; init; }
         public IpcManager IpcManager { get; init; }
@@ -73,7 +73,7 @@ namespace Snapper
 
             CommandManager.AddHandler(CommandName, new CommandInfo(OnCommand)
             {
-                HelpMessage = "Opens main Snapper interface"
+                HelpMessage = "Opens main Snappy interface"
             });
 
             PluginInterface.UiBuilder.Draw += DrawUI;
