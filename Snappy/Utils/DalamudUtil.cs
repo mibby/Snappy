@@ -13,7 +13,7 @@ using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using GameObject = FFXIVClientStructs.FFXIV.Client.Game.Object.GameObject;
 
-namespace Snapper.Utils;
+namespace Snappy.Utils;
 
 public delegate void PlayerChange(Dalamud.Game.ClientState.Objects.Types.ICharacter actor);
 
@@ -63,14 +63,23 @@ public class DalamudUtil : IDisposable
         _framework = framework;
         _condition = condition;
         _chatGui = chatGui;
+
         _clientState.Login += OnLogin;
-        //_clientState.Logout += OnLogout;
         _framework.Update += FrameworkOnUpdate;
-        if (IsLoggedIn)
+        _framework.Update += InitClassJobIdOnFirstTick;
+    }
+
+    private void InitClassJobIdOnFirstTick(IFramework _)
+    {
+        if (_clientState.LocalPlayer != null && _clientState.LocalPlayer.IsValid())
         {
-            classJobId = _clientState.LocalPlayer!.ClassJob.Value.JobIndex;
+            classJobId = _clientState.LocalPlayer.ClassJob.Value.JobIndex;
             OnLogin();
+            Logger.Debug("[DalamudUtil] Initialized class job ID safely on main thread.");
         }
+
+        // Remove after first run to avoid repeated setting
+        _framework.Update -= InitClassJobIdOnFirstTick;
     }
 
     public void PrintInfoChat(string message)

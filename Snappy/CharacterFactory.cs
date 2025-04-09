@@ -4,7 +4,7 @@ using Dalamud.Game.ClientState.Objects.Enums;
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Game.ClientState.Objects.Types;
 
-namespace Snapper
+namespace Snappy
 {
     public static class CharacterFactory
     {

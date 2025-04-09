@@ -2,7 +2,7 @@ using System;
 using System.Runtime.InteropServices;
 using FFXIVClientStructs.FFXIV.Client.System.Resource;
 
-namespace Penumbra.Interop.Structs;
+namespace Snappy.Interop;
 
 [StructLayout( LayoutKind.Explicit )]
 public unsafe struct ResourceHandle

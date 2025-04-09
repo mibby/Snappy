@@ -1,7 +1,7 @@
 using FFXIVClientStructs.FFXIV.Client.System.Resource.Handle;
 using System.Runtime.InteropServices;
 
-namespace Penumbra.Interop.Structs;
+namespace Snappy.Interop;
 
 [StructLayout( LayoutKind.Explicit )]
 public unsafe struct MtrlResource

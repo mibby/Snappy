@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Snapper.PMP
+namespace Snappy.PMP
 {
     internal class PMPManipulationEntry
     {

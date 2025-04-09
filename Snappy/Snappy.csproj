@@ -2,7 +2,7 @@
   <PropertyGroup>
     <Authors>eqbot, ViviAshe, astrodoobs</Authors>
     <Company></Company>
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
     <Description>Snappy</Description>
     <Copyright></Copyright>
     <PackageProjectUrl>https://github.com/astrodoobs/XIVSnapper</PackageProjectUrl>
@@ -28,12 +28,17 @@
     <DalamudLibPath>$(DALAMUD_HOME)/</DalamudLibPath>
   </PropertyGroup>
 
-    <ItemGroup>
-        <PackageReference Include="Glamourer.Api" Version="2.4.1" />
+  <ItemGroup>
+    <ProjectReference Include="..\Penumbra.Api\Penumbra.Api.csproj" />
+    <ProjectReference Include="..\Penumbra.String\Penumbra.String.csproj" />
+    <ProjectReference Include="..\Glamourer.Api\Glamourer.Api.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+        <PackageReference Include="Lumina" Version="5.6.1" />
+        <PackageReference Include="Lumina.Excel" Version="7.2.1" />
         <PackageReference Include="lz4net" Version="1.0.15.93" />
         <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.3" />
-        <PackageReference Include="Penumbra.Api" Version="5.6.1" />
-        <PackageReference Include="Penumbra.String" Version="1.0.5" />
     </ItemGroup>
 
     <ItemGroup>
@@ -65,6 +70,7 @@
             <HintPath>$(DalamudLibPath)Lumina.Excel.dll</HintPath>
             <Private>false</Private>
         </Reference>
+      <Reference Include="System.Windows.Forms" />
     </ItemGroup>
 
 </Project>

@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Snapper.Models
+namespace Snappy.Models
 {
     internal class SnapshotInfo
     {

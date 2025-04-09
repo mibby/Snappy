@@ -1,27 +1,22 @@
 using Dalamud.Game.ClientState.Objects.Types;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Penumbra.Api;
+using Dalamud.Utility;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Scene;
 using FFXIVClientStructs.FFXIV.Client.System.Resource;
-using Penumbra.Interop.Structs;
-using Lumina.Models.Materials;
-using Snapper.Models;
-using Snapper.Utils;
-using System.Threading;
-using Dalamud.Game.ClientState.Objects.Enums;
+using Snappy.Interop;
 using Penumbra.String;
-using FFXIVClientStructs.FFXIV.Client.Game.Object;
+using Snappy.Models;
+using Snappy.Utils;
+using Snappy.Managers;
+using System;
+using System.Collections.Generic;
 using System.IO;
-using System.Text.Json;
-using Snapper.Interop;
-using Dalamud.Utility;
+using System.Linq;
 using System.Text.Encodings.Web;
+using System.Text.Json;
+using System.Threading;
+using ImGuiNET;
 
-namespace Snapper.Managers
+namespace Snappy.Managers
 {
     public class SnapshotManager
     {
@@ -36,11 +31,11 @@ namespace Snapper.Managers
 
         public void RevertAllSnapshots()
         {
-            foreach(var character in tempCollections)
+            foreach (var character in tempCollections)
             {
                 Plugin.IpcManager.PenumbraRemoveTemporaryCollection(character.Name.TextValue);
-                Plugin.IpcManager.GlamourerRevertCharacterCustomization(character);
-                Plugin.IpcManager.CustomizePlusRevert(character.Address);
+                Plugin.IpcManager.RevertGlamourerState(character);
+                Plugin.IpcManager.RevertCustomizePlusScale(character.Address);
             }
             tempCollections.Clear();
         }
@@ -103,10 +98,10 @@ namespace Snapper.Managers
             //Merge meta manips
             //Meta manipulations seem to be sent containing every mod a character has enabled, regardless of whether it's actively being used.
             //This may end up shooting me in the foot, but a newer snapshot should contain the info of an older one.
-            snapshotInfo.ManipulationString = Plugin.IpcManager.PenumbraGetGameObjectMetaManipulations(character.ObjectIndex);
+            snapshotInfo.ManipulationString = Plugin.IpcManager.GetMetaManipulations(character.ObjectIndex);
 
             // Save the glamourer string to a new file
-            var glamourerString = Plugin.IpcManager.GlamourerGetCharacterCustomization(character.Address);
+            var glamourerString = Plugin.IpcManager.GetGlamourerState(character);
             if (!string.IsNullOrEmpty(glamourerString))
             {
                 int fileIndex = 1;
@@ -133,6 +128,20 @@ namespace Snapper.Managers
             return true;
         }
 
+        public void CopyGlamourerStringToClipboard(ICharacter character)
+        {
+            var glamourerString = Plugin.IpcManager.GlamourerIpc.GetClipboardGlamourerString(character);
+
+            if (string.IsNullOrEmpty(glamourerString))
+            {
+                Logger.Warn("Failed to get Glamourer string for clipboard.");
+                return;
+            }
+
+            ImGui.SetClipboardText(glamourerString);
+            Logger.Info($"Copied Glamourer string for {character.Name.TextValue} to clipboard.");
+        }
+
         public bool SaveSnapshot(ICharacter character)
         {
             var charaName = character.Name.TextValue;
@@ -146,7 +155,7 @@ namespace Snapper.Managers
             }
             Directory.CreateDirectory(path);
 
-            snapshotInfo.GlamourerString = Plugin.IpcManager.GlamourerGetCharacterCustomization(character.Address);
+            snapshotInfo.GlamourerString = Plugin.IpcManager.GetGlamourerState(character);
             Logger.Debug($"Got glamourer string {snapshotInfo.GlamourerString}");
 
             List<FileReplacement> replacements = GetFileReplacementsForCharacter(character);
@@ -167,12 +176,12 @@ namespace Snapper.Managers
                 snapshotInfo.FileReplacements.Add(replacement.GamePaths[0], replacement.GamePaths);
             }
 
-            snapshotInfo.ManipulationString = Plugin.IpcManager.PenumbraGetGameObjectMetaManipulations(character.ObjectIndex);
+            snapshotInfo.ManipulationString = Plugin.IpcManager.GetMetaManipulations(character.ObjectIndex);
 
-            if (Plugin.IpcManager.CheckCustomizePlusApi())
+            if (Plugin.IpcManager.IsCustomizePlusAvailable())
             {
                 Logger.Debug("C+ api loaded");
-                var data = Plugin.IpcManager.GetCustomizePlusScaleFromCharacter(character);
+                var data = Plugin.IpcManager.GetCustomizePlusScale(character);
                 if (!data.IsNullOrEmpty())
                 {
                     File.WriteAllText(Path.Combine(path, "customizePlus.json"), data);
@@ -192,14 +201,14 @@ namespace Snapper.Managers
         public bool LoadSnapshot(ICharacter characterApplyTo, int objIdx, string path)
         {
             Logger.Info($"Applying snapshot to {characterApplyTo.Address}");
-            string infoJson = File.ReadAllText(Path.Combine(path,"snapshot.json"));
+            string infoJson = File.ReadAllText(Path.Combine(path, "snapshot.json"));
             if (infoJson == null)
             {
                 Logger.Warn("No snapshot json found, aborting");
                 return false;
             }
             SnapshotInfo? snapshotInfo = JsonSerializer.Deserialize<SnapshotInfo>(infoJson);
-            if(snapshotInfo == null)
+            if (snapshotInfo == null)
             {
                 Logger.Warn("Failed to deserialize snapshot json, aborting");
                 return false;
@@ -207,9 +216,9 @@ namespace Snapper.Managers
 
             //Apply mods
             Dictionary<string, string> moddedPaths = new();
-            foreach(var replacement in snapshotInfo.FileReplacements)
+            foreach (var replacement in snapshotInfo.FileReplacements)
             {
-                foreach(var gamePath in replacement.Value)
+                foreach (var gamePath in replacement.Value)
                 {
                     moddedPaths.Add(gamePath, Path.Combine(path, replacement.Key));
                 }
@@ -217,24 +226,24 @@ namespace Snapper.Managers
             Logger.Debug($"Applied {moddedPaths.Count} replacements");
 
             Plugin.IpcManager.PenumbraRemoveTemporaryCollection(characterApplyTo.Name.TextValue);
-            Plugin.IpcManager.PenumbraSetTemporaryMods(characterApplyTo, objIdx, moddedPaths, snapshotInfo.ManipulationString);
+            Plugin.IpcManager.PenumbraSetTempMods(characterApplyTo, objIdx, moddedPaths, snapshotInfo.ManipulationString);
             if (!tempCollections.Contains(characterApplyTo))
             {
                 tempCollections.Add(characterApplyTo);
             }
 
             //Apply Customize+ if it exists and C+ is installed
-            if (Plugin.IpcManager.CheckCustomizePlusApi())
+            if (Plugin.IpcManager.IsCustomizePlusAvailable())
             {
-                if(File.Exists(Path.Combine(path, "customizePlus.json")))
+                if (File.Exists(Path.Combine(path, "customizePlus.json")))
                 {
                     string custPlusData = File.ReadAllText(Path.Combine(path, "customizePlus.json"));
-                    Plugin.IpcManager.CustomizePlusSetBodyScale(characterApplyTo.Address, custPlusData);
+                    Plugin.IpcManager.SetCustomizePlusScale(characterApplyTo.Address, custPlusData);
                 }
             }
 
             //Apply glamourer string
-            Plugin.IpcManager.GlamourerApplyAll(snapshotInfo.GlamourerString, characterApplyTo);
+            Plugin.IpcManager.ApplyGlamourerState(snapshotInfo.GlamourerString, characterApplyTo);
 
             //Redraw
             Plugin.IpcManager.PenumbraRedraw(objIdx);
@@ -264,7 +273,7 @@ namespace Snapper.Managers
             int? objIdx = GetObjIDXFromCharacter(character);
 
             Logger.Debug($"Character name {charaName}");
-            if(objIdx == null)
+            if (objIdx == null)
             {
                 Logger.Error("Unable to find character in object table, aborting search for file replacements");
                 return replacements;
@@ -284,7 +293,7 @@ namespace Snapper.Managers
             var human = (Human*)baseCharacter->GameObject.GetDrawObject();
             for (var mdlIdx = 0; mdlIdx < human->CharacterBase.SlotCount; ++mdlIdx)
             {
-                var mdl = (RenderModel*)human->CharacterBase.Models[mdlIdx];
+                var mdl = (Snappy.Interop.RenderModel*)human->CharacterBase.Models[mdlIdx];
                 if (mdl == null || mdl->ResourceHandle == null || mdl->ResourceHandle->Category != ResourceCategory.Chara)
                 {
                     continue;
@@ -298,7 +307,7 @@ namespace Snapper.Managers
             return replacements;
         }
 
-        private unsafe void AddReplacementsFromRenderModel(RenderModel* mdl, List<FileReplacement> replacements, int objIdx, int inheritanceLevel = 0)
+        private unsafe void AddReplacementsFromRenderModel(Snappy.Interop.RenderModel* mdl, List<FileReplacement> replacements, int objIdx, int inheritanceLevel = 0)
         {
             if (mdl == null || mdl->ResourceHandle == null || mdl->ResourceHandle->Category != ResourceCategory.Chara)
             {
@@ -324,14 +333,14 @@ namespace Snapper.Managers
 
             for (var mtrlIdx = 0; mtrlIdx < mdl->MaterialCount; mtrlIdx++)
             {
-                var mtrl = (Penumbra.Interop.Structs.Material*)mdl->Materials[mtrlIdx];
+                var mtrl = (Material*)mdl->Materials[mtrlIdx];
                 if (mtrl == null) continue;
 
                 AddReplacementsFromMaterial(mtrl, replacements, objIdx, inheritanceLevel + 1);
             }
         }
 
-        private unsafe void AddReplacementsFromMaterial(Penumbra.Interop.Structs.Material* mtrl, List<FileReplacement> replacements, int objIdx, int inheritanceLevel = 0)
+        private unsafe void AddReplacementsFromMaterial(Material* mtrl, List<FileReplacement> replacements, int objIdx, int inheritanceLevel = 0)
         {
             string fileName;
             try
@@ -354,7 +363,7 @@ namespace Snapper.Managers
             }
             else
             {
-                Logger.Warn($"Material {fileName} did not split into at least 3 partts");
+                Logger.Warn($"Material {fileName} did not split into at least 3 parts");
                 return;
             }
 
@@ -368,7 +377,7 @@ namespace Snapper.Managers
 
             AddFileReplacement(replacements, mtrlFileReplacement);
 
-            var mtrlResourceHandle = (MtrlResource*)mtrl->ResourceHandle;
+            var mtrlResourceHandle = (Snappy.Interop.MtrlResource*)mtrl->ResourceHandle;
             for (var resIdx = 0; resIdx < mtrlResourceHandle->NumTex; resIdx++)
             {
                 string? texPath = null;
@@ -517,7 +526,7 @@ namespace Snapper.Managers
 
             var replacement = CreateFileReplacement(skeletonPath, objIdx, true);
             AddFileReplacement(replacements, replacement);
-            
+
             //DebugPrint(replacement, objectKind, "SKLB", 0);
         }
 
@@ -526,7 +535,7 @@ namespace Snapper.Managers
             if (!newReplacement.HasFileReplacement)
             {
                 Logger.Debug($"Replacement for {newReplacement.ResolvedPath} does not have a file replacement, skipping");
-                foreach(var path in newReplacement.GamePaths)
+                foreach (var path in newReplacement.GamePaths)
                 {
                     Logger.Debug(path);
                 }

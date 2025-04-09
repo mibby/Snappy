@@ -1,16 +1,16 @@
-using Snapper.Models;
+using Snappy.Models;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Snapper.Utils;
+using Snappy.Utils;
 using System.Text.Json;
 using System.ComponentModel.Design;
 using System.IO.Compression;
 
-namespace Snapper.PMP
+namespace Snappy.PMP
 {
     public class PMPExportManager
     {

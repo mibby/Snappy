@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Numerics;
 using ImGuiNET;
 
-namespace Snapper.Windows
+namespace Snappy.Windows
 {
     public sealed class ImGuiRaii : IDisposable
     {

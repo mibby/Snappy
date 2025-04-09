@@ -6,7 +6,7 @@ using Dalamud.Utility;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using Microsoft.Extensions.Logging;
 
-namespace Snapper.Utils;
+namespace Snappy.Utils;
 
 internal class Logger : ILogger
 {

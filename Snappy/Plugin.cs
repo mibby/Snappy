@@ -2,22 +2,15 @@ using Dalamud.Game.Command;
 using Dalamud.IoC;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
-using System.IO;
-using System.Reflection;
 using Dalamud.Interface.Windowing;
-using Snapper.Windows;
+using Snappy.Windows;
 using Dalamud.Interface.ImGuiFileDialog;
-using Dalamud.Game.ClientState.Objects;
-using Snapper.Utils;
-using Dalamud.Game.ClientState;
-using Dalamud.Game;
-using Dalamud.Game.Gui;
-using Dalamud.Game.ClientState.Conditions;
-using Snapper.Managers;
+using Snappy.Utils;
+using Snappy.Managers;
 using MareSynchronos.Export;
-using Snapper.PMP;
+using Snappy.PMP;
 
-namespace Snapper
+namespace Snappy
 {
     public sealed class Plugin : IDalamudPlugin
     {
@@ -41,6 +34,8 @@ namespace Snapper
         [PluginService] public static IPluginLog Log { get; private set; } = null!;
         [PluginService] public static ICommandManager CommandManager { get; private set; } = null!;
         [PluginService] public static IDalamudPluginInterface PluginInterface { get; private set; } = null!;
+        [PluginService] public static IDataManager DataManager { get; private set; } = null!;
+
         //[PluginService] public static Configuration Configuration { get; private set; } = null!;
 
         //public IPluginLog PluginLog { get; private set; } = null!;

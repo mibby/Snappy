@@ -2,7 +2,7 @@ using System.Runtime.InteropServices;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Render;
 using FFXIVClientStructs.FFXIV.Client.System.Resource.Handle;
 
-namespace Penumbra.Interop.Structs;
+namespace Snappy.Interop;
 
 [StructLayout( LayoutKind.Explicit )]
 public unsafe struct RenderModel

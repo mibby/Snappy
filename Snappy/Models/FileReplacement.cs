@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 
-namespace Snapper.Models;
+namespace Snappy.Models;
 
 public class FileReplacement
 {

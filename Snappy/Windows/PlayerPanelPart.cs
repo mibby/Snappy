@@ -4,7 +4,7 @@ using Dalamud.Interface.Colors;
 using Dalamud.Plugin.Services;
 using Dalamud.Interface.ImGuiFileDialog;
 using ImGuiNET;
-using Snapper.Utils;
+using Snappy.Utils;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -14,7 +14,7 @@ using System.Text;
 using System.Threading.Tasks;
 using static Lumina.Data.Parsing.Layer.LayerCommon;
 
-namespace Snapper.Windows
+namespace Snappy.Windows
 {
     public partial class MainWindow
     {
@@ -35,9 +35,28 @@ namespace Snapper.Windows
             ImGui.Text("WARNING:");
             ImGui.PopStyleColor();
             ImGui.PushStyleColor(ImGuiCol.Text, ImGuiColors.DalamudYellow);
-            ImGui.Text("Glamourer API currently does not allow you to get their Glamourer design automatically like before when synced with mare.");
-            ImGui.Text("As a temporary workaround, copy their Glamourer design to clipboard and edit the file it creates.");
+            ImGui.Text("As of Glamourer v6, the API does not allow you to obtain designs automatically for Mare-synced users.");
+            ImGui.Text("A button has been added to this UI to attempt to manually capture Glamourer and Customize data, but this is not guaranteed.");
             ImGui.PopStyleColor();
+
+            ImGui.Text("Capture Glamourer String for Selected Player");
+            ImGui.SameLine();
+            ImGui.PushFont(UiBuilder.IconFont);
+            try
+            {
+                string glamourerIcon = FontAwesomeIcon.Clipboard.ToIconString();
+                if (ImGui.Button(glamourerIcon))
+                {
+                    //save snapshot
+                    if (player != null)
+                        Plugin.SnapshotManager.CopyGlamourerStringToClipboard(player);
+                }
+            }
+            finally
+            {
+                ImGui.PopFont();
+            }
+
             ImGui.Text("Save snapshot of player ");
             ImGui.SameLine();
             ImGui.PushFont(UiBuilder.IconFont);

@@ -2,7 +2,7 @@ using Dalamud.Configuration;
 using Dalamud.Plugin;
 using System;
 
-namespace Snapper
+namespace Snappy
 {
     [Serializable]
     public class Configuration : IPluginConfiguration

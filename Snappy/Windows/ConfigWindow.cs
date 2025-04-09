@@ -6,7 +6,7 @@ using Dalamud.Interface.ImGuiFileDialog;
 using Dalamud.Interface.Windowing;
 using ImGuiNET;
 
-namespace Snapper.Windows;
+namespace Snappy.Windows;
 
 public class ConfigWindow : Window, IDisposable
 {

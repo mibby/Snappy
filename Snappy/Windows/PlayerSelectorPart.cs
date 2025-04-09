@@ -9,7 +9,7 @@ using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Snapper.Windows
+namespace Snappy.Windows
 {
     public partial class MainWindow
     {

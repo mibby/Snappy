@@ -10,9 +10,9 @@ using Dalamud.Logging;
 using ImGuiNET;
 using ImGuiScene;
 using LZ4;
-using Snapper.Utils;
+using Snappy.Utils;
 
-namespace Snapper.Windows;
+namespace Snappy.Windows;
 
 public partial class MainWindow : Window, IDisposable
 {

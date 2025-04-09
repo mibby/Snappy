@@ -1,7 +1,7 @@
 using System.Runtime.InteropServices;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Render;
 
-namespace Penumbra.Interop.Structs;
+namespace Snappy.Interop;
 
 [StructLayout( LayoutKind.Explicit )]
 public unsafe struct Material

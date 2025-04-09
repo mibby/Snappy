@@ -6,10 +6,10 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
-using Snapper.Utils;
-using Snapper;
-using Snapper.Managers;
-using Snapper.Models;
+using Snappy.Utils;
+using Snappy;
+using Snappy.Managers;
+using Snappy.Models;
 using System.Text.Json;
 
 namespace MareSynchronos.Export;
