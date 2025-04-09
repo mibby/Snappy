@@ -2,11 +2,11 @@ using Dalamud.Game.ClientState.Objects.Types;
 using Dalamud.Utility;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Scene;
 using FFXIVClientStructs.FFXIV.Client.System.Resource;
-using Snappy.Interop;
+using ImGuiNET;
 using Penumbra.String;
+using Snappy.Interop;
 using Snappy.Models;
 using Snappy.Utils;
-using Snappy.Managers;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -14,7 +14,6 @@ using System.Linq;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Threading;
-using ImGuiNET;
 
 namespace Snappy.Managers
 {
@@ -25,7 +24,6 @@ namespace Snappy.Managers
 
         public SnapshotManager(Plugin plugin)
         {
-
             this.Plugin = plugin;
         }
 

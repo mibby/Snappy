@@ -1,10 +1,7 @@
+using Dalamud.Utility;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Diagnostics;
-using Dalamud.Logging;
-using Dalamud.Plugin.Services;
-using Dalamud.Utility;
-using FFXIVClientStructs.FFXIV.Client.UI.Agent;
-using Microsoft.Extensions.Logging;
 
 namespace Snappy.Utils;
 

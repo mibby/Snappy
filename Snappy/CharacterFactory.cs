@@ -1,8 +1,8 @@
-using System;
-using System.Reflection;
 using Dalamud.Game.ClientState.Objects.Enums;
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Game.ClientState.Objects.Types;
+using System;
+using System.Reflection;
 
 namespace Snappy
 {
@@ -12,24 +12,24 @@ namespace Snappy
 
         private static void Initialize()
         {
-            _characterConstructor ??= typeof( ICharacter ).GetConstructor( BindingFlags.NonPublic | BindingFlags.Instance, null, new[]
+            _characterConstructor ??= typeof(ICharacter).GetConstructor(BindingFlags.NonPublic | BindingFlags.Instance, null, new[]
             {
                 typeof( IntPtr ),
-            }, null )!;
+            }, null)!;
         }
 
-        private static ICharacter Character( IntPtr address )
+        private static ICharacter Character(IntPtr address)
         {
             Initialize();
-            return (ICharacter)_characterConstructor?.Invoke( new object[]
+            return (ICharacter)_characterConstructor?.Invoke(new object[]
             {
                 address,
-            } )!;
+            })!;
         }
 
-        public static ICharacter? Convert( IGameObject? actor )
+        public static ICharacter? Convert(IGameObject? actor)
         {
-            if( actor == null )
+            if (actor == null)
             {
                 return null;
             }
@@ -37,14 +37,14 @@ namespace Snappy
             return actor switch
             {
                 IPlayerCharacter p => p,
-                IBattleChara b     => b,
+                IBattleChara b => b,
                 _ => actor.ObjectKind switch
                 {
-                    ObjectKind.BattleNpc => Character( actor.Address ),
-                    ObjectKind.Companion => Character( actor.Address ),
-                    ObjectKind.Retainer  => Character( actor.Address ),
-                    ObjectKind.EventNpc  => Character( actor.Address ),
-                    _                    => null,
+                    ObjectKind.BattleNpc => Character(actor.Address),
+                    ObjectKind.Companion => Character(actor.Address),
+                    ObjectKind.Retainer => Character(actor.Address),
+                    ObjectKind.EventNpc => Character(actor.Address),
+                    _ => null,
                 },
             };
         }
@@ -54,10 +54,10 @@ namespace Snappy
     {
         private const int ModelTypeOffset = 0x01B4;
 
-        public static unsafe int ModelType( this IGameObject actor )
-            => *( int* )( actor.Address + ModelTypeOffset );
+        public static unsafe int ModelType(this IGameObject actor)
+            => *(int*)(actor.Address + ModelTypeOffset);
 
-        public static unsafe void SetModelType( this IGameObject actor, int value )
-            => *( int* )( actor.Address + ModelTypeOffset ) = value;
+        public static unsafe void SetModelType(this IGameObject actor, int value)
+            => *(int*)(actor.Address + ModelTypeOffset) = value;
     }
 }

@@ -1,9 +1,7 @@
-using System;
-using System.Runtime.InteropServices;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Scene;
-using FFXIVClientStructs.FFXIV.Client.System.Resource.Handle;
-using Snappy.Interop;
+using System;
+using System.Runtime.InteropServices;
 
 namespace Snappy.Interop;
 

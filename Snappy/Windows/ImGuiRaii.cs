@@ -1,15 +1,15 @@
+using ImGuiNET;
 using System;
 using System.Collections.Generic;
 using System.Numerics;
-using ImGuiNET;
 
 namespace Snappy.Windows
 {
     public sealed class ImGuiRaii : IDisposable
     {
-        private int   _colorStack;
-        private int   _fontStack;
-        private int   _styleStack;
+        private int _colorStack;
+        private int _fontStack;
+        private int _styleStack;
         private float _indentation;
 
         private Stack<Action>? _onDispose;

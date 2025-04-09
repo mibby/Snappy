@@ -1,14 +1,16 @@
 using Dalamud.Game.Command;
+using Dalamud.Interface.ImGuiFileDialog;
+using Dalamud.Interface.Windowing;
 using Dalamud.IoC;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
-using Dalamud.Interface.Windowing;
-using Snappy.Windows;
-using Dalamud.Interface.ImGuiFileDialog;
-using Snappy.Utils;
-using Snappy.Managers;
 using MareSynchronos.Export;
+using Snappy.Managers;
 using Snappy.PMP;
+using Snappy.Utils;
+using Snappy.Windows;
+using System.Reflection;
+
 
 namespace Snappy
 {
@@ -16,7 +18,6 @@ namespace Snappy
     {
         public string Name => "Snappy";
         private const string CommandName = "/snappy";
-
         public Configuration Configuration { get; init; }
         public IObjectTable Objects { get; init; }
         public WindowSystem WindowSystem = new("Snappy");
@@ -26,6 +27,8 @@ namespace Snappy
         public SnapshotManager SnapshotManager { get; init; }
         public MareCharaFileManager MCDFManager { get; init; }
         public PMPExportManager PMPExportManager { get; init; }
+        public string Version =>
+        Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "Unknown";
 
         private ConfigWindow ConfigWindow { get; init; }
         private MainWindow MainWindow { get; init; }
@@ -56,10 +59,11 @@ namespace Snappy
             Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
             Configuration.Initialize(PluginInterface);
 
+
             this.SnapshotManager = new SnapshotManager(this);
             this.MCDFManager = new MareCharaFileManager(this);
             this.PMPExportManager = new PMPExportManager(this);
-            
+
 
             ConfigWindow = new ConfigWindow(this);
             MainWindow = new MainWindow(this);
@@ -86,7 +90,14 @@ namespace Snappy
 
         private void OnCommand(string command, string args)
         {
-            // in response to the slash command, just display our main ui
+            args = args.Trim().ToLowerInvariant();
+
+            if (args == "config")
+            {
+                ConfigWindow.IsOpen = true;
+                return;
+            }
+
             ToggleMainUI();
         }
 

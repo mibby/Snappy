@@ -1,10 +1,10 @@
-using System;
-using System.IO;
-using System.Numerics;
 using Dalamud.Interface;
 using Dalamud.Interface.ImGuiFileDialog;
 using Dalamud.Interface.Windowing;
 using ImGuiNET;
+using System;
+using System.IO;
+using System.Numerics;
 
 namespace Snappy.Windows;
 
@@ -12,6 +12,7 @@ public class ConfigWindow : Window, IDisposable
 {
     private Configuration Configuration;
     private FileDialogManager FileDialogManager;
+    public string Version { get; set; } = string.Empty;
 
     //ImGuiWindowFlags.NoResize
     public ConfigWindow(Plugin plugin) : base(
@@ -52,7 +53,7 @@ public class ConfigWindow : Window, IDisposable
             });
         }
         ImGui.PopFont();
-        
+
         ImGui.Text("Glamourer design fallback string");
         string fallbackString = Configuration.FallBackGlamourerString;
         ImGui.InputText("##input-format", ref fallbackString, 2500);
@@ -64,7 +65,7 @@ public class ConfigWindow : Window, IDisposable
         // Add version label at the bottom
         ImGui.Spacing();
         ImGui.Separator();
-        ImGui.Text($"Snappy version {Configuration.Version}. Made with <3");
+        ImGui.Text($"Snappy version {typeof(Plugin).Assembly.GetName().Version?.ToString() ?? "Unknown"}. Made with <3 .");
     }
 }
 

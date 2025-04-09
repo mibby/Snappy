@@ -1,7 +1,6 @@
 ﻿// PenumbraIpc.Defs.cs
 using Snappy.Managers;
 using Snappy.Utils;
-using System;
 
 namespace Snapper.Managers.Penumbra;
 

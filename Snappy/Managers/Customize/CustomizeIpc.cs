@@ -1,11 +1,11 @@
 ﻿// CustomizeIpc.cs
+using Dalamud.Game.ClientState.Objects.Types;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Ipc;
-using Dalamud.Game.ClientState.Objects.Types;
+using Snappy.Utils;
 using System;
 using System.Collections.Concurrent;
 using System.Text;
-using Snappy.Utils;
 
 namespace Snappy.Managers.Customize;
 

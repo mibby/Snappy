@@ -1,18 +1,8 @@
 using Dalamud.Interface;
-using Dalamud.Interface.Utility;
 using Dalamud.Interface.Colors;
-using Dalamud.Plugin.Services;
-using Dalamud.Interface.ImGuiFileDialog;
 using ImGuiNET;
-using Snappy.Utils;
-using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
-using static Lumina.Data.Parsing.Layer.LayerCommon;
 
 namespace Snappy.Windows
 {
@@ -24,7 +14,7 @@ namespace Snappy.Windows
 
         private void DrawPlayerHeader()
         {
-            var color =player == null ? RedHeaderColor : GreenHeaderColor;
+            var color = player == null ? RedHeaderColor : GreenHeaderColor;
             var buttonColor = ImGui.GetColorU32(ImGuiCol.FrameBg);
             ImGui.Button($"{currentLabel}##playerHeader", -Vector2.UnitX * 0.0001f);
         }
@@ -88,7 +78,7 @@ namespace Snappy.Windows
             try
             {
                 string addIcon = FontAwesomeIcon.Plus.ToIconString();
-                if(ImGui.Button(addIcon))
+                if (ImGui.Button(addIcon))
                 {
                     if (player != null)
                         Plugin.SnapshotManager.AppendSnapshot(player);

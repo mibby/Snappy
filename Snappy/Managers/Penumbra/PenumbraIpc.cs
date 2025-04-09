@@ -1,10 +1,7 @@
 ﻿using Dalamud.Game.ClientState.Objects.Types;
 using Dalamud.Plugin;
-using Dalamud.Plugin.Ipc;
 using Penumbra.Api.Enums;
-using Penumbra.Api.Helpers;
 using Penumbra.Api.IpcSubscribers;
-using Snappy.Interop;
 using Snappy.Utils;
 using System;
 using System.Collections.Concurrent;

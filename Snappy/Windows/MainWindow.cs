@@ -1,16 +1,9 @@
+using Dalamud.Interface.Windowing;
+using ImGuiNET;
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Numerics;
-using Dalamud.Game.ClientState.Objects.Enums;
-using Dalamud.Game.ClientState.Objects.Types;
-using Dalamud.Interface.Windowing;
-using Dalamud.Logging;
-using ImGuiNET;
-using ImGuiScene;
-using LZ4;
-using Snappy.Utils;
 
 namespace Snappy.Windows;
 
@@ -44,13 +37,13 @@ public partial class MainWindow : Window, IDisposable
         }
 
         ImGui.SameLine();
-        if(ImGui.Button("Revert snapshots"))
+        if (ImGui.Button("Revert snapshots"))
         {
             this.Plugin.SnapshotManager.RevertAllSnapshots();
         }
 
         ImGui.SameLine();
-        if(ImGui.Button("Import MCDF file"))
+        if (ImGui.Button("Import MCDF file"))
         {
             Plugin.FileDialogManager.OpenFileDialog("Snapshot selection", ".mcdf", (status, path) =>
             {
@@ -68,7 +61,7 @@ public partial class MainWindow : Window, IDisposable
         }
 
         ImGui.SameLine();
-        if(ImGui.Button("Export snapshot as PMP"))
+        if (ImGui.Button("Export snapshot as PMP"))
         {
             Plugin.FileDialogManager.OpenFolderDialog("Snapshot selection", (status, path) =>
             {

@@ -19,21 +19,44 @@ public partial class GlamourerIpc : IDisposable
     private readonly RevertState _revert;
     private readonly GetStateBase64 _get;
     private readonly ApiVersion _version;
-    private readonly Func<ICharacter, string?> _getBase64FromCharacter;
-
-    private readonly string _fallback;
-    private readonly string _backupBase64 = "Bh+LCAAAAAAAAArEV9ly2jAU/Rc/Mxkv8pa3hoRAJ6QZoMmzAhfQRNiuJS..."; // truncate safely
+    private readonly string _backupBase64 = ""; // truncate safely
+    private Func<ICharacter, string?>? _getBase64FromCharacter;
+    private readonly IDalamudPluginInterface _pluginInterface;
 
     public GlamourerIpc(IDalamudPluginInterface pi, DalamudUtil dalamudUtil, ConcurrentQueue<Action> queue)
     {
         _dalamudUtil = dalamudUtil;
+        _pluginInterface = pi;
         _queue = queue;
         _version = new ApiVersion(pi);
         _get = new GetStateBase64(pi);
         _apply = new ApplyState(pi);
         _revert = new RevertState(pi);
-        _getBase64FromCharacter = pi.GetIpcSubscriber<ICharacter, string?>("Glamourer.GetStateBase64FromCharacter").InvokeFunc!;
-        _fallback = (pi.GetPluginConfig() as Configuration)?.FallBackGlamourerString ?? string.Empty;
+
+        // Defer IPC hook via Framework.Update
+        _dalamudUtil.FrameworkUpdate += WaitForGlamourer;
+    }
+
+    private void WaitForGlamourer()
+    {
+        try
+        {
+            if (_getBase64FromCharacter == null)
+            {
+                _getBase64FromCharacter = _pluginInterface
+                    .GetIpcSubscriber<ICharacter, string?>("Glamourer.GetStateBase64FromCharacter")
+                    .InvokeFunc!;
+                Logger.Info("Glamourer IPC hooked!");
+            }
+        }
+        catch
+        {
+            // Try again next frame
+            return;
+        }
+
+        // IPC is now available, stop checking
+        _dalamudUtil.FrameworkUpdate -= WaitForGlamourer;
     }
 
     public void Dispose() { }
@@ -60,7 +83,7 @@ public partial class GlamourerIpc : IDisposable
 
     public string GetCharacterCustomization(IntPtr ptr)
     {
-        if (!Check()) return _fallback;
+        if (!Check()) return _backupBase64;
 
         try
         {
@@ -78,7 +101,7 @@ public partial class GlamourerIpc : IDisposable
         }
 
         Logger.Warn("Falling back to stored base64");
-        return SafeBase64(_fallback);
+        return SafeBase64(_backupBase64);
     }
 
     private bool Check()
@@ -109,23 +132,25 @@ public partial class GlamourerIpc : IDisposable
 
     public string? GetClipboardGlamourerString(ICharacter character)
     {
-        if (!Check()) return null;
+        if (!Check() || _getBase64FromCharacter == null)
+        {
+            Logger.Warn("[GlamourerIpc] Clipboard IPC not available.");
+            return SafeBase64(_backupBase64);
+        }
 
         try
         {
             var result = _getBase64FromCharacter(character);
             if (!string.IsNullOrEmpty(result))
-            {
                 return result;
-            }
         }
         catch (Exception ex)
         {
-            Logger.Warn($"Failed to get clipboard-style Glamourer string: {ex.Message}");
+            Logger.Warn($"[GlamourerIpc] Failed to get clipboard-style Glamourer string: {ex.Message}");
         }
 
-        Logger.Warn("Glamourer string was null or empty, returning fallback.");
-        return SafeBase64(_fallback);
+        Logger.Warn("[GlamourerIpc] Glamourer string was null or empty, returning fallback.");
+        return SafeBase64(_backupBase64);
     }
 
 }

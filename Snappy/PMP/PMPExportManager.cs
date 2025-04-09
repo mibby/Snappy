@@ -1,14 +1,11 @@
 using Snappy.Models;
+using Snappy.Utils;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Snappy.Utils;
-using System.Text.Json;
-using System.ComponentModel.Design;
 using System.IO.Compression;
+using System.Text;
+using System.Text.Json;
 
 namespace Snappy.PMP
 {
@@ -52,7 +49,7 @@ namespace Snappy.PMP
             PMPMetadata metadata = new PMPMetadata();
             metadata.Name = snapshotName;
             metadata.Author = $"SnapperFork";
-            using(FileStream stream = new FileStream(Path.Combine(workingDirectory, "meta.json"), FileMode.Create))
+            using (FileStream stream = new FileStream(Path.Combine(workingDirectory, "meta.json"), FileMode.Create))
             {
                 JsonSerializer.Serialize(stream, metadata);
             }
@@ -61,7 +58,7 @@ namespace Snappy.PMP
             PMPDefaultMod defaultMod = new PMPDefaultMod();
             foreach (var file in snapshotInfo.FileReplacements)
             {
-                foreach(var replacement in file.Value)
+                foreach (var replacement in file.Value)
                 {
                     defaultMod.Files.Add(replacement, file.Key);
                 }
@@ -69,17 +66,17 @@ namespace Snappy.PMP
 
             List<PMPManipulationEntry>? manipulations;
             FromCompressedBase64<List<PMPManipulationEntry>>(snapshotInfo.ManipulationString, out manipulations);
-            if(manipulations != null)
+            if (manipulations != null)
             {
                 defaultMod.Manipulations = manipulations;
             }
             using (FileStream stream = new FileStream(Path.Combine(workingDirectory, "default_mod.json"), FileMode.Create))
             {
-                JsonSerializer.Serialize(stream, defaultMod, new JsonSerializerOptions { WriteIndented = true});
+                JsonSerializer.Serialize(stream, defaultMod, new JsonSerializerOptions { WriteIndented = true });
             }
 
             //mods
-            foreach(var file in snapshotInfo.FileReplacements)
+            foreach (var file in snapshotInfo.FileReplacements)
             {
 
                 string modPath = Path.Combine(snapshotPath, file.Key);

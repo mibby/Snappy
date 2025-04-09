@@ -1,15 +1,11 @@
-using System.Linq;
-
-using Dalamud.Game.ClientState.Objects.Types;
 using LZ4;
+using Snappy;
+using Snappy.Models;
+using Snappy.Utils;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Threading.Tasks;
-using Snappy.Utils;
-using Snappy;
-using Snappy.Managers;
-using Snappy.Models;
+using System.Linq;
 using System.Text.Json;
 
 namespace MareSynchronos.Export;
@@ -100,7 +96,7 @@ public class MareCharaFileManager
             snapInfo.ManipulationString = LoadedCharaFile.CharaFileData.ManipulationData;
             snapInfo.CustomizeData = LoadedCharaFile.CharaFileData.CustomizePlusData;
             snapInfo.FileReplacements = new();
-            foreach(var record in extractedFiles)
+            foreach (var record in extractedFiles)
             {
                 if (snapInfo.FileReplacements.ContainsKey(record.Value))
                 {

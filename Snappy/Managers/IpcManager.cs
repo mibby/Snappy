@@ -1,16 +1,13 @@
-using Dalamud.Plugin;
-using Snappy.Utils;
 using Dalamud.Game.ClientState.Objects.Types;
-using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using Snappy.Interop;
-using System.Text;
-using Action = System.Action;
-
+using Dalamud.Plugin;
 using Snappy.Managers.Customize;
 using Snappy.Managers.Glamourer;
 using Snappy.Managers.Penumbra;
+using Snappy.Utils;
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using Action = System.Action;
 
 namespace Snappy.Managers;
 
