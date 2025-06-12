@@ -29,6 +29,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\ECommons\ECommons\ECommons.csproj" />
     <ProjectReference Include="..\Penumbra.Api\Penumbra.Api.csproj" />
     <ProjectReference Include="..\Penumbra.String\Penumbra.String.csproj" />
     <ProjectReference Include="..\Glamourer.Api\Glamourer.Api.csproj" />
