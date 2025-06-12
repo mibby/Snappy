@@ -125,6 +125,19 @@ namespace Snappy.Managers
 
             // Save the glamourer string to a new file
             var glamourerString = Plugin.IpcManager.GetGlamourerState(character);
+            if (string.IsNullOrEmpty(glamourerString))
+            {
+                Logger.Debug("Glamourer data from IPC is empty, attempting to get from Mare Synchronos.");
+                glamourerString = Plugin.IpcManager.GetGlamourerStateFromMare(character);
+                if (!string.IsNullOrEmpty(glamourerString))
+                {
+                    Logger.Info("Successfully used Glamourer data from Mare Synchronos for append.");
+                }
+                else
+                {
+                    Logger.Warn("Glamourer data from Mare Synchronos is also empty. Glamourer data will not be updated.");
+                }
+            }
             if (!string.IsNullOrEmpty(glamourerString))
             {
                 snapshotInfo.GlamourerString = glamourerString;
@@ -167,8 +180,22 @@ namespace Snappy.Managers
             }
             Directory.CreateDirectory(path);
 
-            snapshotInfo.GlamourerString = Plugin.IpcManager.GetGlamourerState(character);
-            Logger.Debug($"Got glamourer string {snapshotInfo.GlamourerString}");
+            var glamourerString = Plugin.IpcManager.GetGlamourerState(character);
+            if (string.IsNullOrEmpty(glamourerString))
+            {
+                Logger.Debug("Glamourer data from IPC is empty, attempting to get from Mare Synchronos.");
+                glamourerString = Plugin.IpcManager.GetGlamourerStateFromMare(character);
+                if (!string.IsNullOrEmpty(glamourerString))
+                {
+                    Logger.Info("Successfully used Glamourer data from Mare Synchronos.");
+                }
+                else
+                {
+                    Logger.Warn("Glamourer data from Mare Synchronos is also empty. Glamourer data will be empty in snapshot.");
+                }
+            }
+            snapshotInfo.GlamourerString = glamourerString;
+            Logger.Debug($"Got glamourer string: {snapshotInfo.GlamourerString}");
 
             List<FileReplacement> replacements = GetFileReplacementsForCharacter(character);
 
