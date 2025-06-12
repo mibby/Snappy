@@ -180,7 +180,7 @@ public class IpcManager : IDisposable
                         if (!string.IsNullOrEmpty(customizePlusDataJson))
                         {
                             Logger.Info($"SUCCESS: Retrieved Customize+ data from Mare for {character.Name.TextValue}.");
-                            cPlusData = Convert.ToBase64String(Encoding.UTF8.GetBytes(customizePlusDataJson));
+                            cPlusData = customizePlusDataJson;
                             break;
                         }
                         else
