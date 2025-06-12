@@ -42,7 +42,10 @@ public partial class CustomizeIpc : IDisposable
     {
         try
         {
-            return _apiVersion.InvokeFunc() == "1.0" && _branch.InvokeFunc() == "eqbot";
+            // The original version/branch check is outdated.
+            // A simple check for the presence of the GetApiVersion IPC is sufficient to determine if C+ is available.
+            _apiVersion.InvokeFunc();
+            return true;
         }
         catch
         {
