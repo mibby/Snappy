@@ -57,7 +57,7 @@ namespace Snappy.Managers
             if (!Directory.Exists(path))
             {
                 //no existing snapshot for character, just use save mode
-                this.SaveSnapshot(character);
+                return this.SaveSnapshot(character);
             }
 
             //Merge file replacements
@@ -76,7 +76,7 @@ namespace Snappy.Managers
                     replacementFile.CopyTo(fileToCreate.FullName);
                     foreach (var gamePath in replacement.GamePaths)
                     {
-                        var collisions = snapshotInfo.FileReplacements.Where(src => src.Value.Any(path => path == gamePath));
+                        var collisions = snapshotInfo.FileReplacements.Where(src => src.Value.Any(p => p == gamePath)).ToList();
                         //gamepath already exists in snapshot, overwrite with new file
                         foreach (var collision in collisions)
                         {
@@ -98,22 +98,36 @@ namespace Snappy.Managers
             //This may end up shooting me in the foot, but a newer snapshot should contain the info of an older one.
             snapshotInfo.ManipulationString = Plugin.IpcManager.GetMetaManipulations(character.ObjectIndex);
 
+            // Merge Customize+
+            if (Plugin.IpcManager.IsCustomizePlusAvailable())
+            {
+                Logger.Debug("C+ api loaded, updating C+ data in append mode");
+                var data = Plugin.IpcManager.GetCustomizePlusScale(character);
+                if (data.IsNullOrEmpty())
+                {
+                    Logger.Debug("C+ data from IPC is empty, attempting to get from Mare Synchronos.");
+                    data = Plugin.IpcManager.GetCustomizePlusScaleFromMare(character);
+                    if (!data.IsNullOrEmpty())
+                    {
+                        Logger.Info("Successfully used C+ data from Mare Synchronos for append.");
+                    }
+                    else
+                    {
+                        Logger.Warn("C+ data from Mare Synchronos is also empty. C+ data will not be updated.");
+                    }
+                }
+                if (!data.IsNullOrEmpty())
+                {
+                    File.WriteAllText(Path.Combine(path, "customizePlus.json"), data);
+                    snapshotInfo.CustomizeData = data;
+                }
+            }
+
             // Save the glamourer string to a new file
             var glamourerString = Plugin.IpcManager.GetGlamourerState(character);
             if (!string.IsNullOrEmpty(glamourerString))
             {
-                int fileIndex = 1;
-                string glamourerFilePath;
-                do
-                {
-                    glamourerFilePath = Path.Combine(path, $"glamourer-{fileIndex}.json");
-                    fileIndex++;
-                } while (File.Exists(glamourerFilePath));
-
-                File.WriteAllText(glamourerFilePath, JsonSerializer.Serialize(glamourerString, new JsonSerializerOptions
-                {
-                    Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-                }));
+                snapshotInfo.GlamourerString = glamourerString;
             }
 
             var options = new JsonSerializerOptions
@@ -180,9 +194,25 @@ namespace Snappy.Managers
             {
                 Logger.Debug("C+ api loaded");
                 var data = Plugin.IpcManager.GetCustomizePlusScale(character);
+
+                if (data.IsNullOrEmpty())
+                {
+                    Logger.Debug("C+ data from IPC is empty, attempting to get from Mare Synchronos.");
+                    data = Plugin.IpcManager.GetCustomizePlusScaleFromMare(character);
+                    if (!data.IsNullOrEmpty())
+                    {
+                        Logger.Info("Successfully used C+ data from Mare Synchronos.");
+                    }
+                    else
+                    {
+                        Logger.Warn("C+ data from Mare Synchronos is also empty. C+ data will not be saved.");
+                    }
+                }
+
                 if (!data.IsNullOrEmpty())
                 {
                     File.WriteAllText(Path.Combine(path, "customizePlus.json"), data);
+                    snapshotInfo.CustomizeData = data;
                 }
             }
 
