@@ -346,6 +346,15 @@ namespace Snappy.Managers
 
             var baseCharacter = (FFXIVClientStructs.FFXIV.Client.Game.Character.Character*)(void*)charaPointer;
             var human = (Human*)baseCharacter->GameObject.GetDrawObject();
+
+            // FIX START: Add a null check for the human/draw object. This is the primary cause of the crash.
+            if (human == null)
+            {
+                Logger.Error($"Could not get human/draw object for character '{charaName}'. The character is likely not fully rendered. Aborting file replacement scan to prevent a crash.");
+                return replacements;
+            }
+            // FIX END
+
             for (var mdlIdx = 0; mdlIdx < human->CharacterBase.SlotCount; ++mdlIdx)
             {
                 var mdl = (Snappy.Interop.RenderModel*)human->CharacterBase.Models[mdlIdx];
@@ -513,64 +522,43 @@ namespace Snappy.Managers
 
                 AddReplacementsFromRenderModel(mainHandWeapon, replacements, objIdx, 0);
 
-                /*
-                foreach (var item in replacements)
-                {
-                    _transientResourceManager.RemoveTransientResource(charaPointer, item);
-                }
-                */
-                /*
-                foreach (var item in _transientResourceManager.GetTransientResources((IntPtr)weaponObject))
-                {
-                    Logger.Verbose("Found transient weapon resource: " + item);
-                    AddReplacement(item, objectKind, previousData, 1, true);
-                }
-                */
-
-
                 if (weaponObject->NextSibling != (IntPtr)weaponObject)
                 {
                     var offHandWeapon = ((Interop.Weapon*)weaponObject->NextSibling)->WeaponRenderModel->RenderModel;
 
                     AddReplacementsFromRenderModel(offHandWeapon, replacements, objIdx, 1);
-                    /*
-                    foreach (var item in replacements)
-                    {
-                        _transientResourceManager.RemoveTransientResource((IntPtr)offHandWeapon, item);
-                    }
-
-                    foreach (var item in _transientResourceManager.GetTransientResources((IntPtr)offHandWeapon))
-                    {
-                        Logger.Verbose("Found transient offhand weapon resource: " + item);
-                        AddReplacement(item, objectKind, previousData, 1, true);
-                    }
-                    */
                 }
             }
 
             AddReplacementSkeleton(((Interop.HumanExt*)human)->Human.RaceSexId, objIdx, replacements);
-            try
+
+            // FIX START: Add null checks for Decal and LegacyBodyDecal pointers before trying to access their members.
+            // This prevents a crash if a character has no decal applied.
+            var humanExt = (Interop.HumanExt*)human;
+            if (humanExt->Decal != null)
             {
-                AddReplacementsFromTexture(new ByteString(((Interop.HumanExt*)human)->Decal->FileName()).ToString(), replacements, objIdx, 0, false);
+                try
+                {
+                    AddReplacementsFromTexture(new ByteString(humanExt->Decal->FileName()).ToString(), replacements, objIdx, 0, false);
+                }
+                catch
+                {
+                    Logger.Warn("Could not get Decal data (FileName was likely invalid).");
+                }
             }
-            catch
+
+            if (humanExt->LegacyBodyDecal != null)
             {
-                Logger.Warn("Could not get Decal data");
+                try
+                {
+                    AddReplacementsFromTexture(new ByteString(humanExt->LegacyBodyDecal->FileName()).ToString(), replacements, objIdx, 0, false);
+                }
+                catch
+                {
+                    Logger.Warn("Could not get Legacy Body Decal Data (FileName was likely invalid).");
+                }
             }
-            try
-            {
-                AddReplacementsFromTexture(new ByteString(((Interop.HumanExt*)human)->LegacyBodyDecal->FileName()).ToString(), replacements, objIdx, 0, false);
-            }
-            catch
-            {
-                Logger.Warn("Could not get Legacy Body Decal Data");
-            }
-            /*
-            foreach (var item in previousData.FileReplacements[objectKind])
-            {
-                _transientResourceManager.RemoveTransientResource(charaPointer, item);
-            }
-            */
+            // FIX END
         }
 
         private void AddReplacementSkeleton(ushort raceSexId, int objIdx, List<FileReplacement> replacements)
