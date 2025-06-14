@@ -152,19 +152,6 @@ namespace Snappy.Managers
 
             return true;
         }
-        public void CopyGlamourerStringToClipboard(ICharacter character)
-        {
-            var glamourerString = Plugin.IpcManager.GlamourerIpc.GetClipboardGlamourerString(character);
-
-            if (string.IsNullOrEmpty(glamourerString))
-            {
-                Logger.Warn("Failed to get Glamourer string for clipboard.");
-                return;
-            }
-
-            ImGui.SetClipboardText(glamourerString);
-            Logger.Info($"Copied Glamourer string for {character.Name.TextValue} to clipboard.");
-        }
         public bool SaveSnapshot(ICharacter character)
         {
             var charaName = character.Name.TextValue;

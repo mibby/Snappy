@@ -21,32 +21,6 @@ namespace Snappy.Windows
 
         private void DrawPlayerPanel()
         {
-            ImGui.PushStyleColor(ImGuiCol.Text, ImGuiColors.ParsedOrange);
-            ImGui.Text("WARNING:");
-            ImGui.PopStyleColor();
-            ImGui.PushStyleColor(ImGuiCol.Text, ImGuiColors.DalamudYellow);
-            ImGui.Text("As of Glamourer v6, the API does not allow you to obtain designs automatically for Mare-synced users.");
-            ImGui.Text("A button has been added to this UI to attempt to manually capture Glamourer and Customize data, but this is not guaranteed.");
-            ImGui.PopStyleColor();
-
-            ImGui.Text("Capture Glamourer String for Selected Player");
-            ImGui.SameLine();
-            ImGui.PushFont(UiBuilder.IconFont);
-            try
-            {
-                string glamourerIcon = FontAwesomeIcon.Clipboard.ToIconString();
-                if (ImGui.Button(glamourerIcon + "##CopyGlamourer"))
-                {
-                    //save snapshot
-                    if (player != null)
-                        Plugin.SnapshotManager.CopyGlamourerStringToClipboard(player);
-                }
-            }
-            finally
-            {
-                ImGui.PopFont();
-            }
-
             ImGui.Text("Save snapshot of player ");
             ImGui.SameLine();
             ImGui.PushFont(UiBuilder.IconFont);
@@ -121,7 +95,7 @@ namespace Snappy.Windows
             }
             else
             {
-                ImGui.PushStyleColor(ImGuiCol.Text, ImGuiColors.DalamudYellow);
+                ImGui.PushStyleColor(ImGuiCol.Text, ImGuiColors.DalamudRed);
                 ImGui.Text("Loading snapshots can only be done on GPose actors.");
                 ImGui.PopStyleColor();
             }
