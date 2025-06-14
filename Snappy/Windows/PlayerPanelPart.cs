@@ -35,7 +35,7 @@ namespace Snappy.Windows
             try
             {
                 string glamourerIcon = FontAwesomeIcon.Clipboard.ToIconString();
-                if (ImGui.Button(glamourerIcon))
+                if (ImGui.Button(glamourerIcon + "##CopyGlamourer"))
                 {
                     //save snapshot
                     if (player != null)
@@ -53,7 +53,7 @@ namespace Snappy.Windows
             try
             {
                 string saveIcon = FontAwesomeIcon.Save.ToIconString();
-                if (ImGui.Button(saveIcon))
+                if (ImGui.Button(saveIcon + "##SaveSnapshot"))
                 {
                     //save snapshot
                     if (player != null)
@@ -78,7 +78,7 @@ namespace Snappy.Windows
             try
             {
                 string addIcon = FontAwesomeIcon.Plus.ToIconString();
-                if (ImGui.Button(addIcon))
+                if (ImGui.Button(addIcon + "##AppendSnapshot"))
                 {
                     if (player != null)
                         Plugin.SnapshotManager.AppendSnapshot(player);
@@ -96,8 +96,8 @@ namespace Snappy.Windows
                 ImGui.PushFont(UiBuilder.IconFont);
                 try
                 {
-                    string loadIcon = FontAwesomeIcon.Clipboard.ToIconString();
-                    if (ImGui.Button(loadIcon))
+                    string loadIcon = FontAwesomeIcon.FolderOpen.ToIconString();
+                    if (ImGui.Button(loadIcon + "##LoadSnapshot"))
                     {
                         Plugin.FileDialogManager.OpenFolderDialog("Snapshot selection", (status, path) =>
                         {
@@ -121,7 +121,9 @@ namespace Snappy.Windows
             }
             else
             {
-                ImGui.Text("Loading snapshots can only be done on GPose actors");
+                ImGui.PushStyleColor(ImGuiCol.Text, ImGuiColors.DalamudYellow);
+                ImGui.Text("Loading snapshots can only be done on GPose actors.");
+                ImGui.PopStyleColor();
             }
         }
 
