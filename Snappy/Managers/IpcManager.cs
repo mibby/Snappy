@@ -35,7 +35,7 @@ public class IpcManager : IDisposable
         _dalamudUtil = dalamudUtil;
         _penumbra = new PenumbraIpc(pi, dalamudUtil, actionQueue);
         _glamourer = new GlamourerIpc(pi, dalamudUtil, actionQueue);
-        _customize = new CustomizeIpc(pi, dalamudUtil, actionQueue);
+        _customize = new CustomizeIpc(pi, dalamudUtil);
 
         _dalamudUtil.FrameworkUpdate += HandleActionQueue;
         _dalamudUtil.ZoneSwitchEnd += () => actionQueue.Clear();
@@ -205,7 +205,7 @@ public class IpcManager : IDisposable
     public void RevertGlamourerState(IGameObject c) => _glamourer.RevertState(c);
 
     // CustomizePlus passthroughs
-    public bool IsCustomizePlusAvailable() => true;
+    public bool IsCustomizePlusAvailable() => _customize.CheckApi();
     public string GetCustomizePlusScale(ICharacter c) => _customize.GetScaleFromCharacter(c);
     public string GetCustomizePlusScaleFromMare(ICharacter character)
     {

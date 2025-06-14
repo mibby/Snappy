@@ -3,6 +3,7 @@ using Dalamud.Utility;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Scene;
 using FFXIVClientStructs.FFXIV.Client.System.Resource;
 using ImGuiNET;
+using Newtonsoft.Json;
 using Penumbra.String;
 using Snappy.Interop;
 using Snappy.Models;
@@ -11,9 +12,11 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Numerics;
+using System.Text;
 using System.Text.Encodings.Web;
-using System.Text.Json;
 using System.Threading;
+using JsonSerializer = System.Text.Json.JsonSerializer;
 
 namespace Snappy.Managers
 {
@@ -94,8 +97,6 @@ namespace Snappy.Managers
             }
 
             //Merge meta manips
-            //Meta manipulations seem to be sent containing every mod a character has enabled, regardless of whether it's actively being used.
-            //This may end up shooting me in the foot, but a newer snapshot should contain the info of an older one.
             snapshotInfo.ManipulationString = Plugin.IpcManager.GetMetaManipulations(character.ObjectIndex);
 
             // Merge Customize+
@@ -119,11 +120,10 @@ namespace Snappy.Managers
                 if (!data.IsNullOrEmpty())
                 {
                     File.WriteAllText(Path.Combine(path, "customizePlus.json"), data);
-                    snapshotInfo.CustomizeData = data;
                 }
             }
 
-            // Save the glamourer string to a new file
+            // Save the glamourer string
             var glamourerString = Plugin.IpcManager.GetGlamourerState(character);
             if (string.IsNullOrEmpty(glamourerString))
             {
@@ -143,7 +143,7 @@ namespace Snappy.Managers
                 snapshotInfo.GlamourerString = glamourerString;
             }
 
-            var options = new JsonSerializerOptions
+            var options = new System.Text.Json.JsonSerializerOptions
             {
                 Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
             };
@@ -152,21 +152,6 @@ namespace Snappy.Managers
 
             return true;
         }
-
-        public void CopyGlamourerStringToClipboard(ICharacter character)
-        {
-            var glamourerString = Plugin.IpcManager.GlamourerIpc.GetClipboardGlamourerString(character);
-
-            if (string.IsNullOrEmpty(glamourerString))
-            {
-                Logger.Warn("Failed to get Glamourer string for clipboard.");
-                return;
-            }
-
-            ImGui.SetClipboardText(glamourerString);
-            Logger.Info($"Copied Glamourer string for {character.Name.TextValue} to clipboard.");
-        }
-
         public bool SaveSnapshot(ICharacter character)
         {
             var charaName = character.Name.TextValue;
@@ -239,11 +224,10 @@ namespace Snappy.Managers
                 if (!data.IsNullOrEmpty())
                 {
                     File.WriteAllText(Path.Combine(path, "customizePlus.json"), data);
-                    snapshotInfo.CustomizeData = data;
                 }
             }
 
-            var options = new JsonSerializerOptions
+            var options = new System.Text.Json.JsonSerializerOptions
             {
                 Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
             };
@@ -251,6 +235,18 @@ namespace Snappy.Managers
             File.WriteAllText(Path.Combine(path, "snapshot.json"), infoJson);
 
             return true;
+        }
+
+        // Helper records for sanitizing the C+ JSON data
+        private record BoneTransformSanitizer
+        {
+            public Vector3? Translation { get; set; }
+            public Vector3? Rotation { get; set; }
+            public Vector3? Scaling { get; set; }
+        }
+        private record ProfileSanitizer
+        {
+            public Dictionary<string, BoneTransformSanitizer> Bones { get; set; } = new();
         }
 
         public bool LoadSnapshot(ICharacter characterApplyTo, int objIdx, string path)
@@ -290,10 +286,15 @@ namespace Snappy.Managers
             //Apply Customize+ if it exists and C+ is installed
             if (Plugin.IpcManager.IsCustomizePlusAvailable())
             {
-                if (File.Exists(Path.Combine(path, "customizePlus.json")))
+                var cplusPath = Path.Combine(path, "customizePlus.json");
+                if (File.Exists(cplusPath))
                 {
-                    string custPlusData = File.ReadAllText(Path.Combine(path, "customizePlus.json"));
-                    Plugin.IpcManager.SetCustomizePlusScale(characterApplyTo.Address, custPlusData);
+                    string originalCustPlusData = File.ReadAllText(cplusPath);
+                    string sanitizedCustPlusData = SanitizeCustomizePlusJson(originalCustPlusData);
+                    if (!string.IsNullOrEmpty(sanitizedCustPlusData))
+                    {
+                        Plugin.IpcManager.SetCustomizePlusScale(characterApplyTo.Address, sanitizedCustPlusData);
+                    }
                 }
             }
 
@@ -305,6 +306,61 @@ namespace Snappy.Managers
 
             return true;
         }
+
+        private string SanitizeCustomizePlusJson(string originalData)
+        {
+            string jsonToProcess;
+
+            // Step 1: Handle potential Base64 encoding for backward compatibility.
+            try
+            {
+                var bytes = Convert.FromBase64String(originalData);
+                jsonToProcess = Encoding.UTF8.GetString(bytes);
+                Logger.Debug("Successfully decoded legacy C+ Base64 data.");
+            }
+            catch (FormatException)
+            {
+                // If it's not a valid Base64 string, assume it's already raw JSON.
+                jsonToProcess = originalData;
+                Logger.Debug("C+ data is not Base64, processing as raw JSON.");
+            }
+
+            try
+            {
+                // Step 2: Deserialize using Newtonsoft.Json, which is more forgiving.
+                var profile = JsonConvert.DeserializeObject<ProfileSanitizer>(jsonToProcess);
+
+                if (profile?.Bones == null)
+                {
+                    Logger.Warn($"C+ JSON Sanitizer: Could not deserialize or profile has no bones. JSON: {jsonToProcess}");
+                    return string.Empty;
+                }
+
+                // Step 3: Rebuild the object with complete data, providing defaults.
+                var finalBones = new Dictionary<string, object>();
+                foreach (var bone in profile.Bones)
+                {
+                    var cleanTransforms = new Dictionary<string, Vector3>
+                    {
+                        ["Translation"] = bone.Value.Translation ?? Vector3.Zero,
+                        ["Rotation"] = bone.Value.Rotation ?? Vector3.Zero,
+                        ["Scaling"] = bone.Value.Scaling ?? Vector3.One
+                    };
+                    finalBones[bone.Key] = cleanTransforms;
+                }
+
+                var finalProfile = new { Bones = finalBones };
+
+                // Step 4: Serialize back to a clean JSON string using Newtonsoft.
+                return JsonConvert.SerializeObject(finalProfile);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to sanitize Customize+ JSON. Original Data: {originalData}", ex);
+                return string.Empty;
+            }
+        }
+
 
         private int? GetObjIDXFromCharacter(ICharacter character)
         {
@@ -347,13 +403,11 @@ namespace Snappy.Managers
             var baseCharacter = (FFXIVClientStructs.FFXIV.Client.Game.Character.Character*)(void*)charaPointer;
             var human = (Human*)baseCharacter->GameObject.GetDrawObject();
 
-            // FIX START: Add a null check for the human/draw object. This is the primary cause of the crash.
             if (human == null)
             {
                 Logger.Error($"Could not get human/draw object for character '{charaName}'. The character is likely not fully rendered. Aborting file replacement scan to prevent a crash.");
                 return replacements;
             }
-            // FIX END
 
             for (var mdlIdx = 0; mdlIdx < human->CharacterBase.SlotCount; ++mdlIdx)
             {
@@ -391,7 +445,6 @@ namespace Snappy.Managers
             Logger.Verbose("Checking File Replacement for Model " + mdlPath);
 
             FileReplacement mdlFileReplacement = CreateFileReplacement(mdlPath, objIdx);
-            //DebugPrint(mdlFileReplacement, objectKind, "Model", inheritanceLevel);
 
             AddFileReplacement(replacements, mdlFileReplacement);
 
@@ -437,7 +490,6 @@ namespace Snappy.Managers
             }
 
             var mtrlFileReplacement = CreateFileReplacement(mtrlPath, objIdx);
-            //DebugPrint(mtrlFileReplacement, objectKind, "Material", inheritanceLevel);
 
             AddFileReplacement(replacements, mtrlFileReplacement);
 
@@ -475,7 +527,7 @@ namespace Snappy.Managers
 
         private void AddReplacementsFromTexture(string texPath, List<FileReplacement> replacements, int objIdx, int inheritanceLevel = 0, bool doNotReverseResolve = true)
         {
-            if (string.IsNullOrEmpty(texPath) || texPath.Any(c => c < 32 || c > 126)) // Check for invalid characters
+            if (string.IsNullOrEmpty(texPath) || texPath.Any(c => c < 32 || c > 126))
             {
                 Logger.Warn($"Invalid texture path: {texPath}");
                 return;
@@ -508,7 +560,6 @@ namespace Snappy.Managers
             }
 
             var shpkFileReplacement = CreateFileReplacement(shpkPath, objIdx);
-            //DebugPrint(shpkFileReplacement, objectKind, "Shader", inheritanceLevel);
             AddFileReplacement(replacements, shpkFileReplacement);
         }
 
@@ -532,8 +583,6 @@ namespace Snappy.Managers
 
             AddReplacementSkeleton(((Interop.HumanExt*)human)->Human.RaceSexId, objIdx, replacements);
 
-            // FIX START: Add null checks for Decal and LegacyBodyDecal pointers before trying to access their members.
-            // This prevents a crash if a character has no decal applied.
             var humanExt = (Interop.HumanExt*)human;
             if (humanExt->Decal != null)
             {
@@ -558,7 +607,6 @@ namespace Snappy.Managers
                     Logger.Warn("Could not get Legacy Body Decal Data (FileName was likely invalid).");
                 }
             }
-            // FIX END
         }
 
         private void AddReplacementSkeleton(ushort raceSexId, int objIdx, List<FileReplacement> replacements)
@@ -569,8 +617,6 @@ namespace Snappy.Managers
 
             var replacement = CreateFileReplacement(skeletonPath, objIdx, true);
             AddFileReplacement(replacements, replacement);
-
-            //DebugPrint(replacement, objectKind, "SKLB", 0);
         }
 
         private void AddFileReplacement(List<FileReplacement> replacements, FileReplacement newReplacement)
