@@ -10,6 +10,6 @@
 [submodule "Penumbra.String"]
 	path = Penumbra.String
 	url = https://github.com/Ottermandias/Penumbra.String
-[submodule "Glamourer"]
-	path = Glamourer
-	url = https://github.com/Ottermandias/Glamourer
+[submodule "Penumbra"]
+	path = Penumbra
+	url = https://github.com/xivdev/Penumbra
