@@ -11,6 +11,7 @@ using Snappy.Utils;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Numerics;
 using System.Text;
@@ -22,8 +23,9 @@ namespace Snappy.Managers
 {
     public class SnapshotManager
     {
+        private record ActiveSnapshot(ICharacter Character, Guid? CustomizePlusProfileId);
+        private readonly List<ActiveSnapshot> _activeSnapshots = new();
         private Plugin Plugin;
-        private List<ICharacter> tempCollections = new();
 
         public SnapshotManager(Plugin plugin)
         {
@@ -32,13 +34,19 @@ namespace Snappy.Managers
 
         public void RevertAllSnapshots()
         {
-            foreach (var character in tempCollections)
+            if (!_activeSnapshots.Any()) return;
+
+            Logger.Info($"Reverting {_activeSnapshots.Count} active snapshots.");
+            foreach (var snapshot in _activeSnapshots)
             {
-                Plugin.IpcManager.PenumbraRemoveTemporaryCollection(character.Name.TextValue);
-                Plugin.IpcManager.RevertGlamourerState(character);
-                Plugin.IpcManager.RevertCustomizePlusScale(character.Address);
+                Plugin.IpcManager.PenumbraRemoveTemporaryCollection(snapshot.Character.Name.TextValue);
+                Plugin.IpcManager.RevertGlamourerState(snapshot.Character);
+                if (snapshot.CustomizePlusProfileId.HasValue)
+                {
+                    Plugin.IpcManager.RevertCustomizePlusScale(snapshot.CustomizePlusProfileId.Value);
+                }
             }
-            tempCollections.Clear();
+            _activeSnapshots.Clear();
         }
         public bool AppendSnapshot(ICharacter character)
         {
@@ -102,41 +110,27 @@ namespace Snappy.Managers
             // Merge Customize+
             if (Plugin.IpcManager.IsCustomizePlusAvailable())
             {
-                Logger.Debug("C+ api loaded, updating C+ data in append mode");
-                var data = Plugin.IpcManager.GetCustomizePlusScale(character);
-                if (data.IsNullOrEmpty())
-                {
-                    Logger.Debug("C+ data from IPC is empty, attempting to get from Mare Synchronos.");
-                    data = Plugin.IpcManager.GetCustomizePlusScaleFromMare(character);
-                    if (!data.IsNullOrEmpty())
-                    {
-                        Logger.Info("Successfully used C+ data from Mare Synchronos for append.");
-                    }
-                    else
-                    {
-                        Logger.Warn("C+ data from Mare Synchronos is also empty. C+ data will not be updated.");
-                    }
-                }
-                if (!data.IsNullOrEmpty())
-                {
-                    File.WriteAllText(Path.Combine(path, "customizePlus.json"), data);
-                }
+                HandleCustomizePlusData(character, snapshotInfo, path);
             }
 
             // Save the glamourer string
-            var glamourerString = Plugin.IpcManager.GetGlamourerState(character);
+            var glamourerString = Plugin.IpcManager.GetGlamourerStateFromMare(character);
             if (string.IsNullOrEmpty(glamourerString))
             {
-                Logger.Debug("Glamourer data from IPC is empty, attempting to get from Mare Synchronos.");
-                glamourerString = Plugin.IpcManager.GetGlamourerStateFromMare(character);
+                Logger.Debug("Glamourer data from Mare Synchronos is empty, attempting to get from IPC.");
+                glamourerString = Plugin.IpcManager.GetGlamourerState(character);
                 if (!string.IsNullOrEmpty(glamourerString))
                 {
-                    Logger.Info("Successfully used Glamourer data from Mare Synchronos for append.");
+                    Logger.Info("Successfully used Glamourer data from IPC for append.");
                 }
                 else
                 {
-                    Logger.Warn("Glamourer data from Mare Synchronos is also empty. Glamourer data will not be updated.");
+                    Logger.Warn("Glamourer data from IPC is also empty. Glamourer data will not be updated.");
                 }
+            }
+            else
+            {
+                Logger.Info("Successfully used Glamourer data from Mare Synchronos for append.");
             }
             if (!string.IsNullOrEmpty(glamourerString))
             {
@@ -165,19 +159,23 @@ namespace Snappy.Managers
             }
             Directory.CreateDirectory(path);
 
-            var glamourerString = Plugin.IpcManager.GetGlamourerState(character);
+            var glamourerString = Plugin.IpcManager.GetGlamourerStateFromMare(character);
             if (string.IsNullOrEmpty(glamourerString))
             {
-                Logger.Debug("Glamourer data from IPC is empty, attempting to get from Mare Synchronos.");
-                glamourerString = Plugin.IpcManager.GetGlamourerStateFromMare(character);
+                Logger.Debug("Glamourer data from Mare Synchronos is empty, attempting to get from IPC.");
+                glamourerString = Plugin.IpcManager.GetGlamourerState(character);
                 if (!string.IsNullOrEmpty(glamourerString))
                 {
-                    Logger.Info("Successfully used Glamourer data from Mare Synchronos.");
+                    Logger.Info("Successfully used Glamourer data from IPC.");
                 }
                 else
                 {
-                    Logger.Warn("Glamourer data from Mare Synchronos is also empty. Glamourer data will be empty in snapshot.");
+                    Logger.Warn("Glamourer data from IPC is also empty. Glamourer data will be empty in snapshot.");
                 }
+            }
+            else
+            {
+                Logger.Info("Successfully used Glamourer data from Mare Synchronos.");
             }
             snapshotInfo.GlamourerString = glamourerString;
             Logger.Debug($"Got glamourer string: {snapshotInfo.GlamourerString}");
@@ -204,27 +202,7 @@ namespace Snappy.Managers
 
             if (Plugin.IpcManager.IsCustomizePlusAvailable())
             {
-                Logger.Debug("C+ api loaded");
-                var data = Plugin.IpcManager.GetCustomizePlusScale(character);
-
-                if (data.IsNullOrEmpty())
-                {
-                    Logger.Debug("C+ data from IPC is empty, attempting to get from Mare Synchronos.");
-                    data = Plugin.IpcManager.GetCustomizePlusScaleFromMare(character);
-                    if (!data.IsNullOrEmpty())
-                    {
-                        Logger.Info("Successfully used C+ data from Mare Synchronos.");
-                    }
-                    else
-                    {
-                        Logger.Warn("C+ data from Mare Synchronos is also empty. C+ data will not be saved.");
-                    }
-                }
-
-                if (!data.IsNullOrEmpty())
-                {
-                    File.WriteAllText(Path.Combine(path, "customizePlus.json"), data);
-                }
+                HandleCustomizePlusData(character, snapshotInfo, path);
             }
 
             var options = new System.Text.Json.JsonSerializerOptions
@@ -235,6 +213,128 @@ namespace Snappy.Managers
             File.WriteAllText(Path.Combine(path, "snapshot.json"), infoJson);
 
             return true;
+        }
+
+        private void HandleCustomizePlusData(ICharacter character, SnapshotInfo snapshotInfo, string snapshotPath)
+        {
+            string? cPlusDataJson = null;
+            string? cPlusDataB64 = null;
+
+            // Prioritize Mare data
+            var mareData = Plugin.IpcManager.GetCustomizePlusScaleFromMare(character);
+            if (!mareData.IsNullOrEmpty())
+            {
+                Logger.Info("Successfully used C+ data from Mare Synchronos.");
+                cPlusDataB64 = mareData;
+                try
+                {
+                    cPlusDataJson = Encoding.UTF8.GetString(Convert.FromBase64String(cPlusDataB64));
+                }
+                catch (Exception e)
+                {
+                    Logger.Error("Failed to decode C+ data from Mare", e);
+                }
+            }
+            else
+            {
+                // Fallback to IPC data
+                Logger.Debug("C+ data from Mare Synchronos is empty, attempting to get from IPC.");
+                var ipcData = Plugin.IpcManager.GetCustomizePlusScale(character);
+                if (!ipcData.IsNullOrEmpty())
+                {
+                    Logger.Info("Successfully used C+ data from IPC.");
+                    cPlusDataJson = ipcData;
+                    try
+                    {
+                        cPlusDataB64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(cPlusDataJson));
+                    }
+                    catch (Exception e)
+                    {
+                        Logger.Error("Failed to encode C+ data from IPC", e);
+                    }
+                }
+                else
+                {
+                    Logger.Warn("C+ data from IPC is also empty. C+ data will not be saved.");
+                }
+            }
+
+            // If we successfully got data from either source, process it.
+            if (!string.IsNullOrEmpty(cPlusDataB64) && !string.IsNullOrEmpty(cPlusDataJson))
+            {
+                // Save the Base64 version to the snapshot.
+                snapshotInfo.CustomizeData = cPlusDataB64;
+
+                // Create and save the importable template file from the JSON version.
+                var templateString = CreateCustomizePlusTemplate(cPlusDataJson, character.Name.TextValue);
+                if (!string.IsNullOrEmpty(templateString))
+                {
+                    File.WriteAllText(Path.Combine(snapshotPath, "customizePlus.json"), templateString);
+                }
+            }
+        }
+
+        private string CreateCustomizePlusTemplate(string profileJson, string characterName)
+        {
+            const byte templateVersionByte = 4;
+
+            try
+            {
+                // Step 1: Deserialize the raw profile data into a structure that can handle missing fields.
+                var sanitizedProfile = JsonConvert.DeserializeObject<ProfileSanitizer>(profileJson);
+                if (sanitizedProfile?.Bones == null)
+                {
+                    Logger.Warn($"Could not deserialize C+ profile or it has no bones. JSON: {profileJson}");
+                    return string.Empty;
+                }
+
+                // Step 2: Rebuild the bone dictionary with complete data, providing defaults.
+                var finalBones = new Dictionary<string, object>();
+                foreach (var bone in sanitizedProfile.Bones)
+                {
+                    var completeTransform = new
+                    {
+                        Translation = bone.Value.Translation ?? Vector3.Zero,
+                        Rotation = bone.Value.Rotation ?? Vector3.Zero,
+                        Scaling = bone.Value.Scaling ?? Vector3.One
+                    };
+                    finalBones[bone.Key] = completeTransform;
+                }
+
+                // Step 3: Construct the final template object in the format C+ expects.
+                var finalTemplate = new
+                {
+                    Version = templateVersionByte,
+                    Bones = finalBones,
+                    IsWriteProtected = false
+                };
+
+                // Step 4: Serialize this final template object.
+                var templateJson = JsonConvert.SerializeObject(finalTemplate, Formatting.None);
+                var templateBytes = Encoding.UTF8.GetBytes(templateJson);
+
+                // Step 5: Compress and encode as per C+ template format.
+                using var compressedStream = new MemoryStream();
+                using (var zipStream = new GZipStream(compressedStream, CompressionMode.Compress))
+                {
+                    // C+ template format prepends the version byte to the compressed JSON data.
+                    zipStream.WriteByte(templateVersionByte);
+                    zipStream.Write(templateBytes, 0, templateBytes.Length);
+                }
+
+                return Convert.ToBase64String(compressedStream.ToArray());
+            }
+            catch (JsonReaderException jex)
+            {
+                // Provide more context for JSON parsing errors.
+                Logger.Error($"Failed to create Customize+ template due to a JSON parsing error. The JSON that failed was: {profileJson}", jex);
+                return string.Empty;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Failed to create Customize+ template.", ex);
+                return string.Empty;
+            }
         }
 
         // Helper records for sanitizing the C+ JSON data
@@ -278,22 +378,20 @@ namespace Snappy.Managers
 
             Plugin.IpcManager.PenumbraRemoveTemporaryCollection(characterApplyTo.Name.TextValue);
             Plugin.IpcManager.PenumbraSetTempMods(characterApplyTo, objIdx, moddedPaths, snapshotInfo.ManipulationString);
-            if (!tempCollections.Contains(characterApplyTo))
-            {
-                tempCollections.Add(characterApplyTo);
-            }
+
+            // Remove any previous snapshot data for this character to avoid duplicates
+            _activeSnapshots.RemoveAll(s => s.Character.Address == characterApplyTo.Address);
+            Guid? cplusProfileId = null;
 
             //Apply Customize+ if it exists and C+ is installed
             if (Plugin.IpcManager.IsCustomizePlusAvailable())
             {
-                var cplusPath = Path.Combine(path, "customizePlus.json");
-                if (File.Exists(cplusPath))
+                if (!string.IsNullOrEmpty(snapshotInfo.CustomizeData))
                 {
-                    string originalCustPlusData = File.ReadAllText(cplusPath);
-                    string sanitizedCustPlusData = SanitizeCustomizePlusJson(originalCustPlusData);
+                    string sanitizedCustPlusData = SanitizeCustomizePlusJson(snapshotInfo.CustomizeData);
                     if (!string.IsNullOrEmpty(sanitizedCustPlusData))
                     {
-                        Plugin.IpcManager.SetCustomizePlusScale(characterApplyTo.Address, sanitizedCustPlusData);
+                        cplusProfileId = Plugin.IpcManager.SetCustomizePlusScale(characterApplyTo.Address, sanitizedCustPlusData);
                     }
                 }
             }
@@ -303,6 +401,9 @@ namespace Snappy.Managers
 
             //Redraw
             Plugin.IpcManager.PenumbraRedraw(objIdx);
+
+            //Track the applied snapshot for reversion
+            _activeSnapshots.Add(new ActiveSnapshot(characterApplyTo, cplusProfileId));
 
             return true;
         }
