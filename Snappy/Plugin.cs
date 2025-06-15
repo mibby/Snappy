@@ -39,31 +39,27 @@ namespace Snappy
         [PluginService] public static ICommandManager CommandManager { get; private set; } = null!;
         [PluginService] public static IDalamudPluginInterface PluginInterface { get; private set; } = null!;
         [PluginService] public static IDataManager DataManager { get; private set; } = null!;
-
-        //[PluginService] public static Configuration Configuration { get; private set; } = null!;
-
-        //public IPluginLog PluginLog { get; private set; } = null!;
-        //public static object Log { get; internal set; }
+        [PluginService] public static IGameInteropProvider GameInteropProvider { get; private set; } = null!;
 
         public Plugin(
             IFramework framework,
             IObjectTable objectTable,
             IClientState clientState,
             ICondition condition,
-            IChatGui chatGui)
+            IChatGui chatGui,
+            IGameInteropProvider gameInteropProvider)
         {
             ECommonsMain.Init(PluginInterface, this, ECommons.Module.DalamudReflector);
 
             this.Objects = objectTable;
 
-            this.DalamudUtil = new DalamudUtil(clientState, objectTable, framework, condition, chatGui);
-            this.IpcManager = new IpcManager(PluginInterface, this.DalamudUtil);
-
             Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
             Configuration.Initialize(PluginInterface);
 
+            this.DalamudUtil = new DalamudUtil(clientState, objectTable, framework, condition, chatGui);
+            this.IpcManager = new IpcManager(PluginInterface, this.DalamudUtil);
 
-            this.SnapshotManager = new SnapshotManager(this);
+            this.SnapshotManager = new SnapshotManager(this, gameInteropProvider);
             this.MCDFManager = new MareCharaFileManager(this);
             this.PMPExportManager = new PMPExportManager(this);
 
@@ -78,30 +74,18 @@ namespace Snappy
                 HelpMessage = "Opens main Snappy interface"
             });
 
-            this.IpcManager.GPoseChanged += OnGPoseChanged;
-
             PluginInterface.UiBuilder.Draw += DrawUI;
             PluginInterface.UiBuilder.OpenConfigUi += DrawConfigUI;
             PluginInterface.UiBuilder.DisableGposeUiHide = true;
             PluginInterface.UiBuilder.OpenMainUi += ToggleMainUI;
         }
 
-        private void OnGPoseChanged(bool inGPose)
-        {
-            // When we leave gpose, revert all snapshots.
-            if (!inGPose)
-            {
-                Logger.Info("Exited GPose, reverting all active snapshots.");
-                SnapshotManager.RevertAllSnapshots();
-            }
-        }
-
         public void Dispose()
         {
             this.WindowSystem.RemoveAllWindows();
             CommandManager.RemoveHandler(CommandName);
-            this.IpcManager.GPoseChanged -= OnGPoseChanged;
-            this.SnapshotManager.RevertAllSnapshots();
+            this.SnapshotManager.Dispose();
+            this.IpcManager.Dispose();
             ECommonsMain.Dispose();
         }
 

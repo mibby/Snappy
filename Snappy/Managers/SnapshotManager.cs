@@ -18,18 +18,45 @@ using System.Text;
 using System.Text.Encodings.Web;
 using System.Threading;
 using JsonSerializer = System.Text.Json.JsonSerializer;
+using Dalamud.Hooking;
+using FFXIVClientStructs.FFXIV.Client.UI;
+using FFXIVClientStructs.FFXIV.Client.System.Framework;
+using Dalamud.Plugin.Services;
 
 namespace Snappy.Managers
 {
-    public class SnapshotManager
+    public class SnapshotManager : IDisposable
     {
         private record ActiveSnapshot(ICharacter Character, Guid? CustomizePlusProfileId);
         private readonly List<ActiveSnapshot> _activeSnapshots = new();
         private Plugin Plugin;
 
-        public SnapshotManager(Plugin plugin)
+        private unsafe delegate void ExitGPoseDelegate(UIModule* uiModule);
+        private readonly Hook<ExitGPoseDelegate>? _exitGPoseHook;
+
+        public unsafe SnapshotManager(Plugin plugin, IGameInteropProvider gameInteropProvider)
         {
             this.Plugin = plugin;
+
+            // Hook ExitGPose to revert snapshots before actors are destroyed.
+            var uiModule = Framework.Instance()->UIModule;
+            var exitGPoseAddress = (IntPtr)uiModule->VirtualTable->ExitGPose;
+            _exitGPoseHook = gameInteropProvider.HookFromAddress<ExitGPoseDelegate>(exitGPoseAddress, ExitGPoseDetour);
+            _exitGPoseHook.Enable();
+        }
+
+        public void Dispose()
+        {
+            _exitGPoseHook?.Dispose();
+            // Revert any remaining snapshots on plugin disposal as a safeguard.
+            this.RevertAllSnapshots();
+        }
+
+        private unsafe void ExitGPoseDetour(UIModule* uiModule)
+        {
+            Logger.Info("Exiting GPose, reverting all active snapshots via hook.");
+            RevertAllSnapshots();
+            _exitGPoseHook!.Original(uiModule);
         }
 
         public void RevertAllSnapshots()
@@ -39,7 +66,8 @@ namespace Snappy.Managers
             Logger.Info($"Reverting {_activeSnapshots.Count} active snapshots.");
             foreach (var snapshot in _activeSnapshots)
             {
-                Plugin.IpcManager.PenumbraRemoveTemporaryCollection(snapshot.Character.Name.TextValue);
+                // Use the object index for Penumbra and Glamourer reverts.
+                Plugin.IpcManager.PenumbraRemoveTemporaryCollection(snapshot.Character.ObjectIndex);
                 Plugin.IpcManager.RevertGlamourerState(snapshot.Character);
                 if (snapshot.CustomizePlusProfileId.HasValue)
                 {
@@ -376,7 +404,7 @@ namespace Snappy.Managers
             }
             Logger.Debug($"Applied {moddedPaths.Count} replacements");
 
-            Plugin.IpcManager.PenumbraRemoveTemporaryCollection(characterApplyTo.Name.TextValue);
+            Plugin.IpcManager.PenumbraRemoveTemporaryCollection(characterApplyTo.ObjectIndex);
             Plugin.IpcManager.PenumbraSetTempMods(characterApplyTo, objIdx, moddedPaths, snapshotInfo.ManipulationString);
 
             // Remove any previous snapshot data for this character to avoid duplicates

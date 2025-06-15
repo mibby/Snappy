@@ -1,11 +1,8 @@
-﻿// GlamourerIpc.cs
-using Dalamud.Plugin;
+﻿using Dalamud.Plugin;
 using Dalamud.Game.ClientState.Objects.Types;
 using Glamourer.Api.Enums;
 using System;
 using System.Collections.Concurrent;
-using System.Text;
-using FFXIVClientStructs.FFXIV.Client.Game.Object;
 using Snappy.Utils;
 using Glamourer.Api.Helpers;
 
@@ -18,13 +15,12 @@ public partial class GlamourerIpc : IDisposable
 {
     private readonly DalamudUtil _dalamudUtil;
     private readonly ConcurrentQueue<Action> _queue;
+    private readonly Configuration _configuration;
     private readonly ApplyState _apply;
-    private readonly RevertToAutomationName _revertToAutomationByName;
-    private readonly UnlockStateName _unlockByName;
+    private readonly RevertState _revertState; // Changed from by-name subscribers
     private readonly GetStateBase64 _get;
     private readonly ApiVersion _version;
     private readonly EventSubscriber<bool> _gposeSubscriber;
-    private readonly string _backupBase64 = ""; // truncate safely
     private Func<ICharacter, string?>? _getBase64FromCharacter;
     private readonly IDalamudPluginInterface _pluginInterface;
 
@@ -36,11 +32,11 @@ public partial class GlamourerIpc : IDisposable
         _dalamudUtil = dalamudUtil;
         _pluginInterface = pi;
         _queue = queue;
+        _configuration = pi.GetPluginConfig() as Configuration ?? new Configuration(); // Ensure configuration is available
         _version = new ApiVersion(pi);
         _get = new GetStateBase64(pi);
         _apply = new ApplyState(pi);
-        _revertToAutomationByName = new RevertToAutomationName(pi);
-        _unlockByName = new UnlockStateName(pi);
+        _revertState = new RevertState(pi); // Use the by-index revert subscriber
 
         // Subscribe to the GPose event. This is the reliable way to detect leaving GPose.
         // We fully qualify the static class name to resolve the ambiguity with the delegate.
@@ -78,9 +74,12 @@ public partial class GlamourerIpc : IDisposable
         _dalamudUtil.FrameworkUpdate -= WaitForGlamourer;
     }
 
+
+
     public void Dispose()
     {
         _gposeSubscriber.Dispose();
+        _dalamudUtil.FrameworkUpdate -= WaitForGlamourer;
     }
 
     public void ApplyState(string? base64, ICharacter obj)
@@ -98,25 +97,28 @@ public partial class GlamourerIpc : IDisposable
     {
         if (!Check()) return;
 
-        var charName = obj.Name.TextValue;
-        if (string.IsNullOrEmpty(charName))
+        if (obj == null || obj.Address == IntPtr.Zero)
         {
-            Logger.Error("Tried to revert character with Glamourer but their name was empty.");
+            Logger.Warn("Tried to revert character with Glamourer but the game object was invalid/gone.");
             return;
         }
 
-        // First, unlock the state by name using our key. This is more resilient to timing issues.
-        var unlockResult = _unlockByName.Invoke(charName, SnappyLockKey);
-        Logger.Info($"Glamourer unlocking state by name for '{charName}'. Result: {unlockResult}");
+        // We applied the state with SnappyLockKey, so we must revert with it.
+        // RevertState with a key will unlock and revert to automation.
+        var revertResult = _revertState.Invoke(obj.ObjectIndex, SnappyLockKey);
+        Logger.Info($"Glamourer reverting state for object index {obj.ObjectIndex} using key. Result: {revertResult}");
 
-        // Then, revert the state to automation by name.
-        var revertResult = _revertToAutomationByName.Invoke(charName);
-        Logger.Info($"Glamourer reverting to automation by name for '{charName}'. Result: {revertResult}");
+        // CORRECTED LINE: Removed the check for 'NothingChanged'
+        if (revertResult != GlamourerApiEc.Success)
+        {
+            Logger.Warn($"Failed to revert/unlock Glamourer state for object index {obj.ObjectIndex}. Result: {revertResult}");
+        }
     }
+
 
     public string GetCharacterCustomization(IntPtr ptr)
     {
-        if (!Check()) return _backupBase64;
+        if (!Check()) return SafeBase64(_configuration.FallBackGlamourerString);
 
         try
         {
@@ -134,14 +136,15 @@ public partial class GlamourerIpc : IDisposable
         }
 
         Logger.Warn("Falling back to stored base64");
-        return SafeBase64(_backupBase64);
+        return SafeBase64(_configuration.FallBackGlamourerString);
     }
 
     private bool Check()
     {
         try
         {
-            return _version.Invoke() is { Major: 1, Minor: >= 1 };
+            // Brio requires 1.4, let's keep it consistent.
+            return _version.Invoke() is { Major: 1, Minor: >= 4 };
         }
         catch
         {
@@ -159,7 +162,7 @@ public partial class GlamourerIpc : IDisposable
         }
         catch
         {
-            return _backupBase64;
+            return _configuration.FallBackGlamourerString;
         }
     }
 
@@ -168,7 +171,7 @@ public partial class GlamourerIpc : IDisposable
         if (!Check() || _getBase64FromCharacter == null)
         {
             Logger.Warn("[GlamourerIpc] Clipboard IPC not available.");
-            return SafeBase64(_backupBase64);
+            return SafeBase64(_configuration.FallBackGlamourerString);
         }
 
         try
@@ -183,6 +186,6 @@ public partial class GlamourerIpc : IDisposable
         }
 
         Logger.Warn("[GlamourerIpc] Glamourer string was null or empty, returning fallback.");
-        return SafeBase64(_backupBase64);
+        return SafeBase64(_configuration.FallBackGlamourerString);
     }
 }
