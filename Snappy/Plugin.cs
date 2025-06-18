@@ -57,7 +57,7 @@ namespace Snappy
             Configuration.Initialize(PluginInterface);
 
             this.DalamudUtil = new DalamudUtil(clientState, objectTable, framework, condition, chatGui);
-            this.IpcManager = new IpcManager(PluginInterface, this.DalamudUtil);
+            this.IpcManager = new IpcManager(PluginInterface, this.DalamudUtil, this);
 
             this.SnapshotManager = new SnapshotManager(this, gameInteropProvider);
             this.MCDFManager = new MareCharaFileManager(this);

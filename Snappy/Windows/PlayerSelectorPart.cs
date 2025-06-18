@@ -27,7 +27,7 @@ namespace Snappy.Windows
         private readonly Dictionary<string, int> playerNames = new(100);
         private readonly Dictionary<string, ICharacter?> gPoseActors = new(CharacterScreenIndex - GPoseObjectId);
 
-        private IPluginLog PluginLog { get; init; }
+        private IPluginLog? PluginLog { get; init; }
         private void DrawPlayerFilter()
         {
             using var raii = new ImGuiRaii()

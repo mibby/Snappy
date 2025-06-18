@@ -28,8 +28,9 @@ namespace Snappy.Managers
 {
     public class SnapshotManager : IDisposable
     {
-        private record ActiveSnapshot(ICharacter Character, Guid? CustomizePlusProfileId);
-        private readonly List<ActiveSnapshot> _activeSnapshots = new();
+        public record ActiveSnapshot(ICharacter Character, Guid? CustomizePlusProfileId);
+        private readonly List<ActiveSnapshot> _activeSnapshots = [];
+        public IReadOnlyList<ActiveSnapshot> ActiveSnapshots => _activeSnapshots;
         private Plugin Plugin;
 
         private unsafe delegate void ExitGPoseDelegate(UIModule* uiModule);
@@ -406,7 +407,17 @@ namespace Snappy.Managers
             Logger.Debug($"Applied {moddedPaths.Count} replacements");
 
             Plugin.IpcManager.PenumbraRemoveTemporaryCollection(characterApplyTo.ObjectIndex);
-            Plugin.IpcManager.PenumbraSetTempMods(characterApplyTo, objIdx, moddedPaths, snapshotInfo.ManipulationString);
+
+            // Check if we should merge with a custom collection
+            if (!string.IsNullOrEmpty(Plugin.Configuration.CustomPenumbraCollectionName))
+            {
+                Logger.Info($"Merging snapshot with custom collection: {Plugin.Configuration.CustomPenumbraCollectionName}");
+                Plugin.IpcManager._penumbra.MergeCollectionWithTemporary(characterApplyTo, objIdx, Plugin.Configuration.CustomPenumbraCollectionName, moddedPaths, snapshotInfo.ManipulationString);
+            }
+            else
+            {
+                Plugin.IpcManager.PenumbraSetTempMods(characterApplyTo, objIdx, moddedPaths, snapshotInfo.ManipulationString);
+            }
 
             // Remove any previous snapshot data for this character to avoid duplicates
             _activeSnapshots.RemoveAll(s => s.Character.Address == characterApplyTo.Address);

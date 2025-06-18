@@ -41,7 +41,7 @@ namespace Snappy.Windows
             if (!IsInGpose)
             {
                 ImGui.PushStyleColor(ImGuiCol.Text, ImGuiColors.DalamudYellow);
-                ImGui.Text("Saving snapshots while GPose is active may result in broken/incorrect snapshots. For best results, leave GPose first.");
+                ImGui.Text("For best results, leave GPose first. Saving snapshots while\nGPose is active may result in broken/incorrect snapshots.");
                 ImGui.PopStyleColor();
                 ImGui.Spacing();
             }
