@@ -79,7 +79,7 @@ public partial class PenumbraIpc : IDisposable
     {
         if (!Check()) return;
 
-        Logger.Info($"Refreshing all {_activeCollectionMerges.Count} active merged collections");
+        Logger.Debug($"Refreshing all {_activeCollectionMerges.Count} active merged collections");
 
         foreach (var (objIdx, value) in _activeCollectionMerges.ToList()) // ToList to avoid modification during iteration
         {
@@ -87,7 +87,7 @@ public partial class PenumbraIpc : IDisposable
 
             try
             {
-                Logger.Info($"Refreshing merged collection for actor {character.Name.TextValue} (index {objIdx}) with collection '{collectionName}'");
+                Logger.Debug($"Refreshing merged collection for actor {character.Name.TextValue} (index {objIdx}) with collection '{collectionName}'");
 
                 // Remove the existing temporary collection
                 if (_tempCollectionGuids.TryGetValue(objIdx, out var guid))
@@ -132,11 +132,11 @@ public partial class PenumbraIpc : IDisposable
 
         if (!_tempCollectionGuids.TryGetValue(objIdx, out var guid))
         {
-            Logger.Warn($"[Penumbra] No temporary collection GUID found for object index '{objIdx}' to remove.");
+            Logger.Debug($"[Penumbra] No temporary collection GUID found for object index '{objIdx}' to remove.");
             return;
         }
 
-        Logger.Info($"[Penumbra] Deleting temporary collection for object index {objIdx} (Guid: {guid})");
+        Logger.Debug($"[Penumbra] Deleting temporary collection for object index {objIdx} (Guid: {guid})");
         var ret = _deleteTempCollection.Invoke(guid);
         Logger.Debug("[Penumbra] DeleteTemporaryCollection returned: " + ret);
 
@@ -243,7 +243,7 @@ public partial class PenumbraIpc : IDisposable
     {
         if (!Check() || idx == null || string.IsNullOrEmpty(customCollectionName)) return;
 
-        Logger.Info($"Attempting to merge custom collection '{customCollectionName}' with snapshot for actor {character.Name.TextValue}");
+        Logger.Debug($"Attempting to merge custom collection '{customCollectionName}' with snapshot for actor {character.Name.TextValue}");
 
         // Get the custom collection by name
         var collections = GetCollectionsByIdentifier(customCollectionName);
@@ -254,22 +254,22 @@ public partial class PenumbraIpc : IDisposable
         }
 
         var customCollection = collections.First();
-        Logger.Info($"Found custom collection: {customCollection.Name} ({customCollection.Id})");
+        Logger.Debug($"Found custom collection: {customCollection.Name} ({customCollection.Id})");
 
         var customMods = new Dictionary<string, string>();
 
         // Get the changed items metadata to understand what types of files this collection affects
         var changedItems = GetChangedItemsForCollection(customCollection.Id);
-        Logger.Info($"GetChangedItemsForCollection returned {changedItems.Count} entries");
+        Logger.Debug($"GetChangedItemsForCollection returned {changedItems.Count} entries");
 
         // Log what types of items are changed to help with debugging
         foreach (var item in changedItems.Take(10))
         {
-            Logger.Info($"Changed item: {item.Key} => {item.Value?.GetType().Name ?? "null"}");
+            Logger.Debug($"Changed item: {item.Key} => {item.Value?.GetType().Name ?? "null"}");
         }
 
         // Use the GetAllModSettings API to get the actual enabled mods in this collection
-        Logger.Info($"Getting all mod settings for collection '{customCollectionName}'...");
+        Logger.Debug($"Getting all mod settings for collection '{customCollectionName}'...");
         var (penumbraApiEc, allModSettings) = _getAllModSettings.Invoke(customCollection.Id);
 
         if (penumbraApiEc != PenumbraApiEc.Success)
@@ -284,11 +284,11 @@ public partial class PenumbraIpc : IDisposable
             return;
         }
 
-        Logger.Info($"Collection '{customCollectionName}' has {allModSettings.Count} mods with settings");
+        Logger.Debug($"Collection '{customCollectionName}' has {allModSettings.Count} mods with settings");
 
         // Get the mod list to map mod directories to mod names
         var modList = GetModList();
-        Logger.Info($"Retrieved {modList.Count} total mods from Penumbra");
+        Logger.Debug($"Retrieved {modList.Count} total mods from Penumbra");
 
         // Debug: Let's see what the actual enabled mods are doing
         foreach (var (modDirectory, value) in allModSettings)
@@ -298,42 +298,42 @@ public partial class PenumbraIpc : IDisposable
             if (enabled)
             {
                 var modName = modList.GetValueOrDefault(modDirectory, "");
-                Logger.Info($"Enabled mod in collection: {modDirectory} / {modName}");
+                Logger.Debug($"Enabled mod in collection: {modDirectory} / {modName}");
 
                 // Get the changed items for this specific mod
                 var modChangedItems = GetChangedItems(modDirectory, modName);
-                Logger.Info($"Mod '{modDirectory}' has {modChangedItems.Count} changed items:");
+                Logger.Debug($"Mod '{modDirectory}' has {modChangedItems.Count} changed items:");
                 foreach (var item in modChangedItems.Take(10))
                 {
-                    Logger.Info($"  Mod changed item: {item.Key} => {item.Value?.GetType().Name ?? "null"}");
+                    Logger.Debug($"  Mod changed item: {item.Key} => {item.Value?.GetType().Name ?? "null"}");
                 }
 
                 // Also check what the collection itself reports as changed
-                Logger.Info($"Checking what collection '{customCollectionName}' reports as changed...");
+                Logger.Debug($"Checking what collection '{customCollectionName}' reports as changed...");
                 var collectionChangedItems = GetChangedItemsForCollection(customCollection.Id);
-                Logger.Info($"Collection '{customCollectionName}' has {collectionChangedItems.Count} changed items:");
+                Logger.Debug($"Collection '{customCollectionName}' has {collectionChangedItems.Count} changed items:");
                 foreach (var item in collectionChangedItems.Take(20))
                 {
-                    Logger.Info($"  Collection changed item: {item.Key} => {item.Value?.GetType().Name ?? "null"}");
+                    Logger.Debug($"  Collection changed item: {item.Key} => {item.Value?.GetType().Name ?? "null"}");
 
                     // If this is an emote, let's see if we can get more details
                     if (item.Key.Contains("Emote:", StringComparison.OrdinalIgnoreCase))
                     {
-                        Logger.Info($"    Emote details: {item.Value}");
+                        Logger.Debug($"    Emote details: {item.Value}");
                     }
                 }
             }
         }
 
         // PROPER SOLUTION: Access Penumbra's internal ResolvedFiles directly
-        Logger.Info($"Using Penumbra internal API to get actual file redirections...");
+        Logger.Debug($"Using Penumbra internal API to get actual file redirections...");
 
         try
         {
             // Get the Penumbra plugin instance using DalamudReflector
             if (DalamudReflector.TryGetDalamudPlugin("Penumbra", out var penumbraPlugin))
             {
-                Logger.Info($"Found Penumbra plugin instance");
+                Logger.Debug($"Found Penumbra plugin instance");
 
                 // Get the _services field from the Penumbra instance
                 var penumbraType = penumbraPlugin.GetType();
@@ -342,7 +342,7 @@ public partial class PenumbraIpc : IDisposable
 
                 if (serviceManager != null)
                 {
-                    Logger.Info($"Found Penumbra ServiceManager");
+                    Logger.Debug($"Found Penumbra ServiceManager");
 
                     // Get the CollectionManager from the service container
                     var serviceManagerType = serviceManager.GetType();
@@ -358,7 +358,7 @@ public partial class PenumbraIpc : IDisposable
 
                         if (collectionManager != null)
                         {
-                            Logger.Info($"Found CollectionManager");
+                            Logger.Debug($"Found CollectionManager");
 
                             // Get the Storage field from CollectionManager (it's a readonly field, not a property)
                             var storageField = collectionManagerType.GetField("Storage", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
@@ -366,7 +366,7 @@ public partial class PenumbraIpc : IDisposable
 
                             if (storage != null)
                             {
-                                Logger.Info($"Found CollectionStorage");
+                                Logger.Debug($"Found CollectionStorage");
 
                                 // Get the ByName method from CollectionStorage
                                 var storageType = storage.GetType();
@@ -381,7 +381,7 @@ public partial class PenumbraIpc : IDisposable
 
                                     if (found && collection != null)
                                     {
-                                        Logger.Info($"Found Penumbra ModCollection object for '{customCollectionName}'");
+                                        Logger.Debug($"Found Penumbra ModCollection object for '{customCollectionName}'");
 
                                         // Get the ResolvedFiles property
                                         var modCollectionType = collection.GetType();
@@ -390,7 +390,7 @@ public partial class PenumbraIpc : IDisposable
 
                                         if (resolvedFiles != null)
                                         {
-                                            Logger.Info($"Accessing ResolvedFiles from collection cache...");
+                                            Logger.Debug($"Accessing ResolvedFiles from collection cache...");
 
                                             // ResolvedFiles is IReadOnlyDictionary<Utf8GamePath, ModPath>
                                             var dictionaryType = resolvedFiles.GetType();
@@ -470,21 +470,21 @@ public partial class PenumbraIpc : IDisposable
             Logger.Error($"Stack trace: {ex.StackTrace}");
         }
 
-        Logger.Info($"Found {customMods.Count} file redirections from custom collection '{customCollectionName}'");
-        Logger.Info($"Found {customMods.Count} mods in custom collection '{customCollectionName}':");
+        Logger.Debug($"Found {customMods.Count} file redirections from custom collection '{customCollectionName}'");
+        Logger.Debug($"Found {customMods.Count} mods in custom collection '{customCollectionName}':");
         foreach (var mod in customMods.Take(10)) // Log first 10 for debugging
         {
-            Logger.Info($"  Custom mod: {mod.Key} => {mod.Value}");
+            Logger.Debug($"  Custom mod: {mod.Key} => {mod.Value}");
         }
         if (customMods.Count > 10)
         {
-            Logger.Info($"  ... and {customMods.Count - 10} more custom mods");
+            Logger.Debug($"  ... and {customMods.Count - 10} more custom mods");
         }
 
-        Logger.Info($"Snapshot has {snapshotMods.Count} mods. Sample snapshot mods:");
+        Logger.Debug($"Snapshot has {snapshotMods.Count} mods. Sample snapshot mods:");
         foreach (var mod in snapshotMods.Take(5)) // Log first 5 for debugging
         {
-            Logger.Info($"  Snapshot mod: {mod.Key} => {mod.Value}");
+            Logger.Debug($"  Snapshot mod: {mod.Key} => {mod.Value}");
         }
 
         // Merge: snapshot mods first (base), then custom collection mods override them
@@ -499,47 +499,47 @@ public partial class PenumbraIpc : IDisposable
             if (wasOverride)
             {
                 overrideCount++;
-                Logger.Info($"Custom collection OVERRIDE: {customMod.Key} => {customMod.Value}");
+                Logger.Debug($"Custom collection OVERRIDE: {customMod.Key} => {customMod.Value}");
             }
             else
             {
-                Logger.Verbose($"Custom collection addition: {customMod.Key} => {customMod.Value}");
+                Logger.Debug($"Custom collection addition: {customMod.Key} => {customMod.Value}");
             }
         }
 
-        Logger.Info($"Merged {snapshotMods.Count} snapshot mods with {customMods.Count} custom collection mods. {overrideCount} files were overridden. Total: {mergedMods.Count}");
+        Logger.Debug($"Merged {snapshotMods.Count} snapshot mods with {customMods.Count} custom collection mods. {overrideCount} files were overridden. Total: {mergedMods.Count}");
 
         // Create and apply the merged temporary collection
         var name = "Snap_" + character.Name.TextValue + "_" + idx.Value + "_Merged";
         var tempCollection = _createTempCollection.Invoke(name);
-        Logger.Info($"Created merged temporary collection: {tempCollection}");
+        Logger.Debug($"Created merged temporary collection: {tempCollection}");
 
         _tempCollectionGuids[idx.Value] = tempCollection;
 
         // Assign the temporary collection to the actor
         var assign = _assignTempCollection.Invoke(tempCollection, idx.Value, true);
-        Logger.Info($"Assigned merged temporary collection to actor {idx.Value}: {assign}");
+        Logger.Debug($"Assigned merged temporary collection to actor {idx.Value}: {assign}");
 
         // Add the merged mods to the temporary collection
         var result = _addTempMod.Invoke("SnapMerged", tempCollection, mergedMods, snapshotManips, 0);
-        Logger.Info($"Added merged mods to temporary collection: {result}");
+        Logger.Debug($"Added merged mods to temporary collection: {result}");
 
         // PROPER FIX: Copy the emote data changes from the custom collection to the temporary collection
         // This is the correct way to handle data sheet changes in Penumbra
-        Logger.Info($"Copying emote data changes from custom collection to temporary collection...");
+        Logger.Debug($"Copying emote data changes from custom collection to temporary collection...");
 
         try
         {
             // Get the changed items from the custom collection (these include emote data changes)
             var customChangedItems = GetChangedItemsForCollection(customCollection.Id);
-            Logger.Info($"Custom collection has {customChangedItems.Count} changed items");
+            Logger.Debug($"Custom collection has {customChangedItems.Count} changed items");
 
             // Apply each emote change to the temporary collection
             foreach (var changedItem in customChangedItems)
             {
                 if (changedItem.Key.Contains("Emote:", StringComparison.OrdinalIgnoreCase))
                 {
-                    Logger.Info($"Copying emote change to temporary collection: {changedItem.Key}");
+                    Logger.Debug($"Copying emote change to temporary collection: {changedItem.Key}");
 
                     // Use the SetTemporaryMod API to add the emote change to the temporary collection
                     // This preserves the data sheet modifications properly
@@ -549,7 +549,7 @@ public partial class PenumbraIpc : IDisposable
                 }
             }
 
-            Logger.Info($"Successfully copied emote data changes to temporary collection");
+            Logger.Debug($"Successfully copied emote data changes to temporary collection");
         }
         catch (Exception ex)
         {
@@ -559,7 +559,7 @@ public partial class PenumbraIpc : IDisposable
         // Store the merge information for potential automatic refresh
         _activeCollectionMerges[idx.Value] = (character, customCollectionName, snapshotMods, snapshotManips);
 
-        Logger.Info($"Successfully merged custom collection '{customCollectionName}' with snapshot - custom mods override snapshot mods");
+        Logger.Debug($"Successfully merged custom collection '{customCollectionName}' with snapshot - custom mods override snapshot mods");
     }
 
     private bool Check()

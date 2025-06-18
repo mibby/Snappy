@@ -82,11 +82,11 @@ public class IpcManager : IDisposable
     public Dictionary<Guid, string> GetCollections() => _penumbra.GetCollections();
     public void MergeCollectionWithTemporary(int objIdx, string customCollectionName)
     {
-        Logger.Info($"[UI] MergeCollectionWithTemporary called with objIdx={objIdx}, collection='{customCollectionName}'");
+        Logger.Debug($"[UI] MergeCollectionWithTemporary called with objIdx={objIdx}, collection='{customCollectionName}'");
 
         // This method will be called from the UI - we need to get the character and snapshot data
         var activeSnapshots = _plugin.SnapshotManager.ActiveSnapshots;
-        Logger.Info($"[UI] Found {activeSnapshots.Count} active snapshots");
+        Logger.Debug($"[UI] Found {activeSnapshots.Count} active snapshots");
 
         var snapshot = activeSnapshots.FirstOrDefault(s => s.Character.ObjectIndex == objIdx);
         if (snapshot == null)
@@ -95,7 +95,7 @@ public class IpcManager : IDisposable
             return;
         }
 
-        Logger.Info($"[UI] Found active snapshot for character '{snapshot.Character.Name.TextValue}'");
+        Logger.Debug($"[UI] Found active snapshot for character '{snapshot.Character.Name.TextValue}'");
 
         // Try to load snapshot data from disk first (for saved snapshots)
         var charaName = snapshot.Character.Name.TextValue;
@@ -107,7 +107,7 @@ public class IpcManager : IDisposable
 
         if (File.Exists(snapshotJsonPath))
         {
-            Logger.Info($"[UI] Loading snapshot data from disk at: {snapshotJsonPath}");
+            Logger.Debug($"[UI] Loading snapshot data from disk at: {snapshotJsonPath}");
             var infoJson = File.ReadAllText(snapshotJsonPath);
             var snapshotInfo = System.Text.Json.JsonSerializer.Deserialize<Models.SnapshotInfo>(infoJson);
             if (snapshotInfo == null)
@@ -116,7 +116,7 @@ public class IpcManager : IDisposable
                 return;
             }
 
-            Logger.Info($"[UI] Successfully loaded snapshot info with {snapshotInfo.FileReplacements.Count} file replacements");
+            Logger.Debug($"[UI] Successfully loaded snapshot info with {snapshotInfo.FileReplacements.Count} file replacements");
 
             // Convert FileReplacements to the format expected by PenumbraIpc
             moddedPaths = new Dictionary<string, string>();
@@ -131,23 +131,23 @@ public class IpcManager : IDisposable
         }
         else
         {
-            Logger.Info($"[UI] No snapshot json found at {snapshotJsonPath}, this is a Brio actor with in-memory snapshot...");
+            Logger.Debug($"[UI] No snapshot json found at {snapshotJsonPath}, this is a Brio actor with in-memory snapshot...");
 
             // For Brio actors, we need to get the ORIGINAL snapshot data, not the current mixed state
             // This ensures we always start from the clean original snapshot, not from any previous overrides
             moddedPaths = GetOriginalSnapshotDataForBrioActor(snapshot.Character, objIdx);
             manipulationString = GetMetaManipulations(objIdx);
 
-            Logger.Info($"[UI] Retrieved {moddedPaths.Count} mods from original Brio actor snapshot");
+            Logger.Debug($"[UI] Retrieved {moddedPaths.Count} mods from original Brio actor snapshot");
         }
 
-        Logger.Info($"[UI] Calling PenumbraIpc.MergeCollectionWithTemporary...");
+        Logger.Debug($"[UI] Calling PenumbraIpc.MergeCollectionWithTemporary...");
 
         // Call the PenumbraIpc method directly with the UI-selected collection name
         _penumbra.MergeCollectionWithTemporary(snapshot.Character, objIdx, customCollectionName,
             moddedPaths, manipulationString);
 
-        Logger.Info($"[UI] MergeCollectionWithTemporary call completed");
+        Logger.Debug($"[UI] MergeCollectionWithTemporary call completed");
     }
 
     /// <summary>
@@ -157,7 +157,7 @@ public class IpcManager : IDisposable
     /// </summary>
     private Dictionary<string, string> GetOriginalSnapshotDataForBrioActor(ICharacter character, int objIdx)
     {
-        Logger.Info($"[UI] Getting ORIGINAL snapshot data for {character.Name.TextValue}");
+        Logger.Debug($"[UI] Getting ORIGINAL snapshot data for {character.Name.TextValue}");
 
         try
         {
@@ -165,13 +165,13 @@ public class IpcManager : IDisposable
             var storedSnapshotData = _penumbra.GetStoredSnapshotData(objIdx);
             if (storedSnapshotData != null)
             {
-                Logger.Info($"[UI] Found stored original snapshot data with {storedSnapshotData.Count} mods");
+                Logger.Debug($"[UI] Found stored original snapshot data with {storedSnapshotData.Count} mods");
                 return storedSnapshotData;
             }
 
             // If no stored data, we need to capture the current snapshot data before applying any overrides
             // This should be the original snapshot that was applied to the Brio actor
-            Logger.Info($"[UI] No stored data found, capturing current snapshot data as original");
+            Logger.Debug($"[UI] No stored data found, capturing current snapshot data as original");
             var originalFileReplacements = _plugin.SnapshotManager.GetFileReplacementsForCharacter(character);
 
             var moddedPaths = new Dictionary<string, string>();
@@ -183,13 +183,13 @@ public class IpcManager : IDisposable
                 }
             }
 
-            Logger.Info($"[UI] Captured {moddedPaths.Count} original file replacements from Brio actor");
+            Logger.Debug($"[UI] Captured {moddedPaths.Count} original file replacements from Brio actor");
             return moddedPaths;
         }
         catch (Exception ex)
         {
             Logger.Error($"[UI] Error getting original Brio actor snapshot data: {ex.Message}");
-            Logger.Info($"[UI] Using empty base - custom collection will provide all mods");
+            Logger.Debug($"[UI] Using empty base - custom collection will provide all mods");
             return new Dictionary<string, string>();
         }
     }

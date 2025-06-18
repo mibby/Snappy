@@ -411,7 +411,7 @@ namespace Snappy.Managers
             // Check if we should merge with a custom collection
             if (!string.IsNullOrEmpty(Plugin.Configuration.CustomPenumbraCollectionName))
             {
-                Logger.Info($"Merging snapshot with custom collection: {Plugin.Configuration.CustomPenumbraCollectionName}");
+                Logger.Debug($"Merging snapshot with custom collection: {Plugin.Configuration.CustomPenumbraCollectionName}");
                 Plugin.IpcManager._penumbra.MergeCollectionWithTemporary(characterApplyTo, objIdx, Plugin.Configuration.CustomPenumbraCollectionName, moddedPaths, snapshotInfo.ManipulationString);
             }
             else
