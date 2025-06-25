@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 
 namespace Snappy.Features.Mcdf;
 
@@ -25,8 +26,8 @@ public record McdfHeader(byte Version, McdfData CharaFileData)
     private static (byte, int) ReadHeader(BinaryReader reader)
     {
         var chars = new string(reader.ReadChars(4));
-        if (!string.Equals(chars, "MCDF", System.StringComparison.Ordinal))
-            throw new System.Exception("Not a Mare Chara File");
+        if (!string.Equals(chars, "MCDF", StringComparison.Ordinal))
+            throw new Exception("Not a Mare Chara File");
 
         var version = reader.ReadByte();
         if (version == 1)
@@ -35,12 +36,12 @@ public record McdfHeader(byte Version, McdfData CharaFileData)
             return (version, dataLength);
         }
 
-        throw new System.Exception($"Unsupported MCDF version: {version}");
+        throw new Exception($"Unsupported MCDF version: {version}");
     }
 
     public static McdfHeader? FromBinaryReader(string path, BinaryReader reader)
     {
-        long initialPosition = reader.BaseStream.Position;
+        var initialPosition = reader.BaseStream.Position;
         try
         {
             var (version, dataLength) = ReadHeader(reader);
@@ -53,7 +54,7 @@ public record McdfHeader(byte Version, McdfData CharaFileData)
             };
             return decoded;
         }
-        catch (System.Exception)
+        catch (Exception)
         {
             reader.BaseStream.Position = initialPosition;
             throw;

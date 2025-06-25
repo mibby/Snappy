@@ -3,7 +3,6 @@ using Dalamud.Game.ClientState.Objects.Types;
 using Dalamud.Plugin.Ipc;
 using ECommons.DalamudServices;
 using ECommons.Logging;
-using Snappy.Utils;
 
 namespace Snappy.IPC.Customize;
 

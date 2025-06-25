@@ -3,17 +3,14 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Numerics;
-using Dalamud.Game.ClientState.Objects.Types;
 using Dalamud.Interface;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Windowing;
-using ECommons.DalamudServices;
-using ECommons.GameHelpers;
+using ECommons.Configuration;
 using ECommons.ImGuiMethods;
 using ECommons.Logging;
 using ImGuiNET;
 using Newtonsoft.Json;
-using OtterGui.Classes;
 using OtterGui.Filesystem;
 using OtterGui.Log;
 using OtterGui.Raii;
@@ -21,13 +18,12 @@ using OtterGui.Text;
 using OtterGui.Widgets;
 using Snappy.Core;
 using Snappy.Models;
-using Snappy.Utils;
 
 namespace Snappy.UI;
 
 public partial class MainWindow : Window, IDisposable
 {
-    private readonly Plugin Plugin;
+    private readonly Plugin _plugin;
 
     private class SnapshotCombo : FilterComboCache<FileSystem<Snapshot>.Leaf>
     {
@@ -102,15 +98,15 @@ public partial class MainWindow : Window, IDisposable
     private CustomizeHistory _customizeHistory = new();
     private SnapshotInfo? _selectedSnapshotInfo;
 
-    private object? _historyEntryToRename = null;
+    private object? _historyEntryToRename;
     private string _tempHistoryEntryName = string.Empty;
-    private object? _historyEntryToDelete = null;
+    private object? _historyEntryToDelete;
 
-    private bool _isRenamingSnapshot = false;
+    private bool _isRenamingSnapshot;
     private string _tempSnapshotName = string.Empty;
-    private bool _openRenameActorPopup = false;
+    private bool _openRenameActorPopup;
     private string _tempSourceActorName = string.Empty;
-    private bool _openDeleteSnapshotPopup = false;
+    private bool _openDeleteSnapshotPopup;
     private bool _popupDummy = true;
 
     // Collection merge functionality
@@ -119,37 +115,37 @@ public partial class MainWindow : Window, IDisposable
     private DateTime _lastCollectionCountUpdate = DateTime.MinValue;
     private bool _cachedHasActiveSnapshot;
     private DateTime _lastActiveSnapshotCheck = DateTime.MinValue;
-    private IReadOnlyList<SnapshotManager.ActiveSnapshot> ActiveSnapshots => Plugin.SnapshotManager.ActiveSnapshots;
+    private IReadOnlyList<SnapshotManager.ActiveSnapshot> ActiveSnapshots => _plugin.SnapshotManager.ActiveSnapshots;
     public MainWindow(Plugin plugin)
         : base(
             $"Snappy v{plugin.Version}",
             ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse
         )
     {
-        this.SizeConstraints = new WindowSizeConstraints
+        SizeConstraints = new WindowSizeConstraints
         {
             MinimumSize = new Vector2(800, 500),
             MaximumSize = new Vector2(float.MaxValue, float.MaxValue),
         };
 
-        this.Plugin = plugin;
+        _plugin = plugin;
         _snapshotCombo = new SnapshotCombo(() => _snapshotList, plugin.Log);
         _snapshotCombo.SelectionChanged += OnSnapshotSelectionChanged;
 
-        this.TitleBarButtons.Add(
+        TitleBarButtons.Add(
             new()
             {
                 Icon = FontAwesomeIcon.Cog,
                 IconOffset = new Vector2(2, 1.5f),
-                Click = _ => Plugin.DrawConfigUI(),
+                Click = _ => _plugin.DrawConfigUI(),
                 ShowTooltip = () => ImGui.SetTooltip("Snappy Settings"),
             }
         );
 
-        Plugin.SnapshotsUpdated += OnSnapshotsChanged;
-        Plugin.SnapshotManager.GPoseExited += ClearActorSelection;
-        Plugin.SnapshotManager.GPoseEntered += MarkActorListForRefresh;
-        Plugin.SnapshotManager.GPoseExited += MarkActorListForRefresh;
+        _plugin.SnapshotsUpdated += OnSnapshotsChanged;
+        _plugin.SnapshotManager.GPoseExited += ClearActorSelection;
+        _plugin.SnapshotManager.GPoseEntered += MarkActorListForRefresh;
+        _plugin.SnapshotManager.GPoseExited += MarkActorListForRefresh;
 
         // Initial refresh
         MarkActorListForRefresh();
@@ -189,13 +185,13 @@ public partial class MainWindow : Window, IDisposable
 
     private void LoadSnapshots()
     {
-        var fs = Plugin.SnapshotFS;
+        var fs = _plugin.SnapshotFS;
         var selectedPath = _selectedSnapshot?.FullName;
 
         foreach (var child in fs.Root.GetChildren(ISortMode<Snapshot>.Lexicographical).ToList())
             fs.Delete(child);
 
-        var dir = Plugin.Configuration.WorkingDirectory;
+        var dir = _plugin.Configuration.WorkingDirectory;
         if (Directory.Exists(dir))
         {
             var snapshotDirs = new DirectoryInfo(dir)
@@ -226,10 +222,10 @@ public partial class MainWindow : Window, IDisposable
 
     public void Dispose()
     {
-        Plugin.SnapshotManager.GPoseExited -= ClearActorSelection;
-        Plugin.SnapshotManager.GPoseEntered -= MarkActorListForRefresh;
-        Plugin.SnapshotManager.GPoseExited -= MarkActorListForRefresh;
-        Plugin.SnapshotsUpdated -= OnSnapshotsChanged;
+        _plugin.SnapshotManager.GPoseExited -= ClearActorSelection;
+        _plugin.SnapshotManager.GPoseEntered -= MarkActorListForRefresh;
+        _plugin.SnapshotManager.GPoseExited -= MarkActorListForRefresh;
+        _plugin.SnapshotsUpdated -= OnSnapshotsChanged;
     }
 
     public void ClearActorSelection()
@@ -323,7 +319,7 @@ public partial class MainWindow : Window, IDisposable
             );
         }
 
-        Plugin.InvokeSnapshotsUpdated();
+        _plugin.InvokeSnapshotsUpdated();
     }
 
     private bool DrawStretchedIconButtonWithText(
@@ -523,7 +519,7 @@ public partial class MainWindow : Window, IDisposable
                         var deletedSnapshotName = _selectedSnapshot!.Name;
                         Directory.Delete(_selectedSnapshot!.FullName, true);
                         ClearSnapshotSelection();
-                        Plugin.InvokeSnapshotsUpdated();
+                        _plugin.InvokeSnapshotsUpdated();
                         Notify.Success($"Snapshot '{deletedSnapshotName}' deleted successfully.");
                     }
                     catch (Exception e)
@@ -568,7 +564,7 @@ public partial class MainWindow : Window, IDisposable
 
                 ImGui.Separator();
 
-                bool isInvalidName = string.IsNullOrWhiteSpace(_tempSourceActorName);
+                var isInvalidName = string.IsNullOrWhiteSpace(_tempSourceActorName);
 
                 using (var d = ImRaii.Disabled(isInvalidName))
                 {
@@ -627,7 +623,7 @@ public partial class MainWindow : Window, IDisposable
             // Get all collections from Penumbra
             try
             {
-                var collections = Plugin.IpcManager.GetCollections();
+                var collections = _plugin.IpcManager.GetCollections();
 
                 foreach (var collection in collections)
                 {
@@ -651,16 +647,16 @@ public partial class MainWindow : Window, IDisposable
 
         ImGui.Spacing();
 
-        bool hasValidCollection = !string.IsNullOrEmpty(_selectedCollectionToMerge);
+        var hasValidCollection = !string.IsNullOrEmpty(_selectedCollectionToMerge);
 
         if (ImGui.Button("Apply Collection Override", new Vector2(200, 0)) && hasValidCollection)
         {
-            Plugin.IpcManager.MergeCollectionWithTemporary(
+            _plugin.IpcManager.MergeCollectionWithTemporary(
                 objIdxSelected.Value,
                 _selectedCollectionToMerge!);
 
             // Refresh the actor to apply changes immediately
-            Plugin.IpcManager._penumbra.Redraw(objIdxSelected.Value);
+            _plugin.IpcManager._penumbra.Redraw(objIdxSelected.Value);
         }
 
         if (!hasValidCollection && ImGui.IsItemHovered())
@@ -671,7 +667,7 @@ public partial class MainWindow : Window, IDisposable
         ImGui.SameLine();
         if (ImGui.Button("Refresh Collections", new Vector2(150, 0)))
         {
-            Plugin.IpcManager._penumbra.RefreshAllMergedCollections();
+            _plugin.IpcManager._penumbra.RefreshAllMergedCollections();
         }
 
         if (ImGui.IsItemHovered())
@@ -687,7 +683,7 @@ public partial class MainWindow : Window, IDisposable
         var currentTime = DateTime.UtcNow;
         if ((currentTime - _lastCollectionCountUpdate).TotalSeconds > 5.0) // Update every 5 seconds
         {
-            _cachedActiveCollectionCount = Plugin.IpcManager._penumbra.GetActiveMergedCollectionCount();
+            _cachedActiveCollectionCount = _plugin.IpcManager._penumbra.GetActiveMergedCollectionCount();
             _lastCollectionCountUpdate = currentTime;
         }
 
@@ -703,7 +699,7 @@ public partial class MainWindow : Window, IDisposable
 
     private void DrawBottomBar()
     {
-        var workingDirectory = Plugin.Configuration.WorkingDirectory;
+        var workingDirectory = _plugin.Configuration.WorkingDirectory;
 
         const float selectorWidthPercentage = 0.4f;
 
@@ -730,16 +726,16 @@ public partial class MainWindow : Window, IDisposable
             )
         )
         {
-            Plugin.FileDialogManager.OpenFolderDialog(
+            _plugin.FileDialogManager.OpenFolderDialog(
                 "Where do you want to save your snaps?",
                 (status, path) =>
                 {
                     if (!status || string.IsNullOrEmpty(path) || !Directory.Exists(path))
                         return;
-                    Plugin.Configuration.WorkingDirectory = path;
-                    ECommons.Configuration.EzConfig.Save();
+                    _plugin.Configuration.WorkingDirectory = path;
+                    EzConfig.Save();
                     Notify.Success("Working directory updated.");
-                    Plugin.InvokeSnapshotsUpdated();
+                    _plugin.InvokeSnapshotsUpdated();
                 }
             );
         }
@@ -748,7 +744,7 @@ public partial class MainWindow : Window, IDisposable
 
         var revertButtonText = "Revert All";
         var revertButtonSize = new Vector2(100 * ImGuiHelpers.GlobalScale, 0);
-        var isRevertDisabled = !Plugin.SnapshotManager.HasActiveSnapshots;
+        var isRevertDisabled = !_plugin.SnapshotManager.HasActiveSnapshots;
 
         var buttonPosX = ImGui.GetWindowContentRegionMax().X - revertButtonSize.X;
         ImGui.SetCursorPosX(buttonPosX);
@@ -756,7 +752,7 @@ public partial class MainWindow : Window, IDisposable
         using var d = ImRaii.Disabled(isRevertDisabled);
         if (ImUtf8.Button(revertButtonText, revertButtonSize))
         {
-            Plugin.SnapshotManager.RevertAllSnapshots();
+            _plugin.SnapshotManager.RevertAllSnapshots();
         }
         ImUtf8.HoverTooltip(
             ImGuiHoveredFlags.AllowWhenDisabled,

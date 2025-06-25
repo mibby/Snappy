@@ -1,8 +1,9 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using System.IO;
+using System.Linq;
+using System.Text.Json;
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Game.ClientState.Objects.Types;
 using Dalamud.Plugin;
@@ -12,6 +13,7 @@ using ECommons.Reflection;
 using Snappy.IPC.Customize;
 using Snappy.IPC.Glamourer;
 using Snappy.IPC.Penumbra;
+using Snappy.Models;
 using Snappy.Utils;
 
 namespace Snappy.IPC;
@@ -112,7 +114,7 @@ public class IpcManager : IDisposable
         {
             PluginLog.Debug($"[UI] Loading snapshot data from disk at: {snapshotJsonPath}");
             var infoJson = File.ReadAllText(snapshotJsonPath);
-            var snapshotInfo = System.Text.Json.JsonSerializer.Deserialize<Models.SnapshotInfo>(infoJson);
+            var snapshotInfo = JsonSerializer.Deserialize<SnapshotInfo>(infoJson);
             if (snapshotInfo == null)
             {
                 PluginLog.Debug($"[UI] Failed to deserialize snapshot json for character {charaName}, aborting");
@@ -143,13 +145,13 @@ public class IpcManager : IDisposable
             PluginLog.Debug($"[UI] Retrieved {moddedPaths.Count} mods from original Brio actor snapshot");
         }
 
-        PluginLog.Debug($"[UI] Calling PenumbraIpc.MergeCollectionWithTemporary...");
+        PluginLog.Debug("[UI] Calling PenumbraIpc.MergeCollectionWithTemporary...");
 
         // Call the PenumbraIpc method directly with the UI-selected collection name
         _penumbra.MergeCollectionWithTemporary(character, objIdx, customCollectionName,
             moddedPaths, manipulationString);
 
-        PluginLog.Debug($"[UI] MergeCollectionWithTemporary call completed");
+        PluginLog.Debug("[UI] MergeCollectionWithTemporary call completed");
     }
 
     /// <summary>
@@ -173,7 +175,7 @@ public class IpcManager : IDisposable
 
             // If no stored data, we need to capture the current snapshot data before applying any overrides
             // This should be the original snapshot that was applied to the Brio actor
-            PluginLog.Debug($"[UI] No stored data found, capturing current snapshot data as original");
+            PluginLog.Debug("[UI] No stored data found, capturing current snapshot data as original");
             var originalFileReplacements = _plugin.SnapshotManager.GetFileReplacementsForCharacter(character);
 
             var moddedPaths = new Dictionary<string, string>();
@@ -191,7 +193,7 @@ public class IpcManager : IDisposable
         catch (Exception ex)
         {
             PluginLog.Error($"[UI] Error getting original Brio actor snapshot data: {ex.Message}");
-            PluginLog.Debug($"[UI] Using empty base - custom collection will provide all mods");
+            PluginLog.Debug("[UI] Using empty base - custom collection will provide all mods");
             return new Dictionary<string, string>();
         }
     }

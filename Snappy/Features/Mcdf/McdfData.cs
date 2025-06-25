@@ -12,8 +12,6 @@ public record McdfData
     public string ManipulationData { get; set; } = string.Empty;
     public List<FileData> Files { get; set; } = new();
 
-    public McdfData() { }
-
     public byte[] ToByteArray()
     {
         return Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(this));

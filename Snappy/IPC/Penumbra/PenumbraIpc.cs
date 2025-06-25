@@ -1,12 +1,14 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using Dalamud.Game.ClientState.Objects.Types;
 using ECommons.DalamudServices;
 using ECommons.Logging;
+using ECommons.Reflection;
 using Penumbra.Api.Enums;
 using Penumbra.Api.IpcSubscribers;
-using System.Linq;
-using ECommons.Reflection;
 
 namespace Snappy.IPC.Penumbra;
 
@@ -68,7 +70,7 @@ public class PenumbraIpc : IDisposable
 
     public void Dispose() { }
 
-        /// <summary>
+    /// <summary>
     /// Refresh all active merged collections. Call this when Penumbra collections have been modified.
     /// </summary>
     public void RefreshAllMergedCollections()
@@ -167,7 +169,7 @@ public class PenumbraIpc : IDisposable
     {
         if (!Check())
             return;
-        _redraw.Invoke(objIdx, RedrawType.Redraw);
+        _redraw.Invoke(objIdx);
     }
 
     public void Redraw(IntPtr objPtr)
@@ -178,7 +180,7 @@ public class PenumbraIpc : IDisposable
         var gameObj = Svc.Objects.CreateObjectReference(objPtr);
         if (gameObj != null)
         {
-            _redraw.Invoke(gameObj.ObjectIndex, RedrawType.Redraw);
+            _redraw.Invoke(gameObj.ObjectIndex);
             PluginLog.Verbose("Redrawing " + gameObj.Name);
         }
     }
@@ -205,7 +207,7 @@ public class PenumbraIpc : IDisposable
 
         _tempCollectionGuids[idx.Value] = collection;
 
-        var assign = _assignTempCollection.Invoke(collection, idx.Value, true);
+        var assign = _assignTempCollection.Invoke(collection, idx.Value);
         PluginLog.Verbose("Assigned temp collection: " + assign);
 
         foreach (var m in mods)
@@ -357,27 +359,27 @@ public class PenumbraIpc : IDisposable
         }
 
         // PROPER SOLUTION: Access Penumbra's internal ResolvedFiles directly
-        PluginLog.Debug($"Using Penumbra internal API to get actual file redirections...");
+        PluginLog.Debug("Using Penumbra internal API to get actual file redirections...");
 
         try
         {
             // Get the Penumbra plugin instance using DalamudReflector
             if (DalamudReflector.TryGetDalamudPlugin("Penumbra", out var penumbraPlugin))
             {
-                PluginLog.Debug($"Found Penumbra plugin instance");
+                PluginLog.Debug("Found Penumbra plugin instance");
 
                 // Get the _services field from the Penumbra instance
                 var penumbraType = penumbraPlugin.GetType();
-                var servicesField = penumbraType.GetField("_services", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                var servicesField = penumbraType.GetField("_services", BindingFlags.NonPublic | BindingFlags.Instance);
                 var serviceManager = servicesField?.GetValue(penumbraPlugin);
 
                 if (serviceManager != null)
                 {
-                    PluginLog.Debug($"Found Penumbra ServiceManager");
+                    PluginLog.Debug("Found Penumbra ServiceManager");
 
                     // Get the CollectionManager from the service container
                     var serviceManagerType = serviceManager.GetType();
-                    var getServiceMethod = serviceManagerType.GetMethod("GetService", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                    var getServiceMethod = serviceManagerType.GetMethod("GetService", BindingFlags.Public | BindingFlags.Instance);
 
                     // Get the CollectionManager type
                     var penumbraAssembly = penumbraPlugin.GetType().Assembly;
@@ -389,19 +391,19 @@ public class PenumbraIpc : IDisposable
 
                         if (collectionManager != null)
                         {
-                            PluginLog.Debug($"Found CollectionManager");
+                            PluginLog.Debug("Found CollectionManager");
 
                             // Get the Storage field from CollectionManager (it's a readonly field, not a property)
-                            var storageField = collectionManagerType.GetField("Storage", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                            var storageField = collectionManagerType.GetField("Storage", BindingFlags.Public | BindingFlags.Instance);
                             var storage = storageField?.GetValue(collectionManager);
 
                             if (storage != null)
                             {
-                                PluginLog.Debug($"Found CollectionStorage");
+                                PluginLog.Debug("Found CollectionStorage");
 
                                 // Get the ByName method from CollectionStorage
                                 var storageType = storage.GetType();
-                                var byNameMethod = storageType.GetMethod("ByName", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                                var byNameMethod = storageType.GetMethod("ByName", BindingFlags.Public | BindingFlags.Instance);
 
                                 if (byNameMethod != null)
                                 {
@@ -416,12 +418,12 @@ public class PenumbraIpc : IDisposable
 
                                         // Get the ResolvedFiles property
                                         var modCollectionType = collection.GetType();
-                                        var resolvedFilesProperty = modCollectionType.GetProperty("ResolvedFiles", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                                        var resolvedFilesProperty = modCollectionType.GetProperty("ResolvedFiles", BindingFlags.NonPublic | BindingFlags.Instance);
                                         var resolvedFiles = resolvedFilesProperty?.GetValue(collection);
 
                                         if (resolvedFiles != null)
                                         {
-                                            PluginLog.Debug($"Accessing ResolvedFiles from collection cache...");
+                                            PluginLog.Debug("Accessing ResolvedFiles from collection cache...");
 
                                             // ResolvedFiles is IReadOnlyDictionary<Utf8GamePath, ModPath>
                                             var dictionaryType = resolvedFiles.GetType();
@@ -430,7 +432,7 @@ public class PenumbraIpc : IDisposable
 
                                             if (keysProperty != null && itemProperty != null)
                                             {
-                                                var keys = keysProperty.GetValue(resolvedFiles) as System.Collections.IEnumerable;
+                                                var keys = keysProperty.GetValue(resolvedFiles) as IEnumerable;
                                                 if (keys != null)
                                                 {
                                                     foreach (var key in keys)
@@ -467,32 +469,32 @@ public class PenumbraIpc : IDisposable
                                 }
                                 else
                                 {
-                                    PluginLog.Debug($"Could not find ByName method in CollectionStorage");
+                                    PluginLog.Debug("Could not find ByName method in CollectionStorage");
                                 }
                             }
                             else
                             {
-                                PluginLog.Debug($"Could not get CollectionStorage from CollectionManager");
+                                PluginLog.Debug("Could not get CollectionStorage from CollectionManager");
                             }
                         }
                         else
                         {
-                            PluginLog.Debug($"Could not get CollectionManager from ServiceManager");
+                            PluginLog.Debug("Could not get CollectionManager from ServiceManager");
                         }
                     }
                     else
                     {
-                        PluginLog.Debug($"Could not find CollectionManager type or GetService method");
+                        PluginLog.Debug("Could not find CollectionManager type or GetService method");
                     }
                 }
                 else
                 {
-                    PluginLog.Debug($"Could not get ServiceManager from Penumbra instance");
+                    PluginLog.Debug("Could not get ServiceManager from Penumbra instance");
                 }
             }
             else
             {
-                PluginLog.Debug($"Could not find Penumbra plugin instance");
+                PluginLog.Debug("Could not find Penumbra plugin instance");
             }
         }
         catch (Exception ex)
@@ -521,10 +523,10 @@ public class PenumbraIpc : IDisposable
         // Merge: snapshot mods first (base), then custom collection mods override them
         // This ensures animations from custom collection take priority
         var mergedMods = new Dictionary<string, string>(snapshotMods);
-        int overrideCount = 0;
+        var overrideCount = 0;
         foreach (var customMod in customMods)
         {
-            bool wasOverride = mergedMods.ContainsKey(customMod.Key);
+            var wasOverride = mergedMods.ContainsKey(customMod.Key);
             mergedMods[customMod.Key] = customMod.Value; // Custom collection mods override snapshot mods
 
             if (wasOverride)
@@ -548,7 +550,7 @@ public class PenumbraIpc : IDisposable
         _tempCollectionGuids[idx.Value] = tempCollection;
 
         // Assign the temporary collection to the actor
-        var assign = _assignTempCollection.Invoke(tempCollection, idx.Value, true);
+        var assign = _assignTempCollection.Invoke(tempCollection, idx.Value);
         PluginLog.Debug($"Assigned merged temporary collection to actor {idx.Value}: {assign}");
 
         // Add the merged mods to the temporary collection
@@ -557,7 +559,7 @@ public class PenumbraIpc : IDisposable
 
         // PROPER FIX: Copy the emote data changes from the custom collection to the temporary collection
         // This is the correct way to handle data sheet changes in Penumbra
-        PluginLog.Debug($"Copying emote data changes from custom collection to temporary collection...");
+        PluginLog.Debug("Copying emote data changes from custom collection to temporary collection...");
 
         try
         {
@@ -580,7 +582,7 @@ public class PenumbraIpc : IDisposable
                 }
             }
 
-            PluginLog.Debug($"Successfully copied emote data changes to temporary collection");
+            PluginLog.Debug("Successfully copied emote data changes to temporary collection");
         }
         catch (Exception ex)
         {

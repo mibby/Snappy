@@ -3,7 +3,6 @@ using Dalamud.Game.ClientState.Objects.Types;
 using ECommons.DalamudServices;
 using ECommons.Logging;
 using Glamourer.Api.Enums;
-using Glamourer.Api.Helpers;
 using Glamourer.Api.IpcSubscribers;
 
 namespace Snappy.IPC.Glamourer;
@@ -12,7 +11,7 @@ public partial class GlamourerIpc : IDisposable
 {
     private readonly ApplyState _apply;
     private readonly GetStateBase64 _get;
-    private readonly global::Glamourer.Api.IpcSubscribers.RevertToAutomation _revertToAutomation;
+    private readonly RevertToAutomation _revertToAutomation;
     private readonly UnlockState _unlockState;
     private readonly ApiVersion _version;
 
@@ -23,7 +22,7 @@ public partial class GlamourerIpc : IDisposable
         _version = new ApiVersion(Svc.PluginInterface);
         _get = new GetStateBase64(Svc.PluginInterface);
         _apply = new ApplyState(Svc.PluginInterface);
-        _revertToAutomation = new global::Glamourer.Api.IpcSubscribers.RevertToAutomation(
+        _revertToAutomation = new RevertToAutomation(
             Svc.PluginInterface
         );
         _unlockState = new UnlockState(Svc.PluginInterface);
@@ -85,7 +84,7 @@ public partial class GlamourerIpc : IDisposable
         try
         {
             PluginLog.Debug($"Getting customization for {c.Name} / {c.ObjectIndex}");
-            (GlamourerApiEc ec, string? result) = _get.Invoke(c.ObjectIndex);
+            (var ec, var result) = _get.Invoke(c.ObjectIndex);
             if (!string.IsNullOrEmpty(result))
                 return result;
         }
