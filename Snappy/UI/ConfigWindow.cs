@@ -20,13 +20,14 @@ namespace Snappy.UI
 
         public ConfigWindow(Plugin plugin)
             : base(
-                "Snappy Settings",
-                ImGuiWindowFlags.NoCollapse
-                    | ImGuiWindowFlags.NoScrollbar
-                    | ImGuiWindowFlags.NoScrollWithMouse
-            )
+                $"Snappy Settings v{typeof(Plugin).Assembly.GetName().Version?.ToString() ?? "Unknown"}",
+                ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse)
         {
-            this.Size = new Vector2(380, 190) * ImGuiHelpers.GlobalScale;
+            this.SizeConstraints = new WindowSizeConstraints
+            {
+                MinimumSize = new Vector2(465, 280),
+                MaximumSize = new Vector2(float.MaxValue, float.MaxValue)
+            };
 
             this.Plugin = plugin;
             this._configuration = plugin.Configuration;
@@ -107,16 +108,54 @@ namespace Snappy.UI
                     + "A backup is created before any changes are made."
             );
 
+            ImGui.Spacing();
             ImGui.Separator();
+            ImGui.Text("Custom Penumbra Collection");
+            ImGui.Text("Select a collection to merge with snapshots when applying to actors:");
 
-            var versionText =
-                $"Snappy v{typeof(Plugin).Assembly.GetName().Version?.ToString() ?? "Unknown"}";
-            ImGui.SetCursorPosX(
-                ImGui.GetCursorPosX()
-                    + ImGui.GetContentRegionAvail().X
-                    - ImUtf8.CalcTextSize(versionText).X
-            );
-            ImUtf8.Text(versionText);
+            // Collection selector
+            var customCollectionName = _configuration.CustomPenumbraCollectionName;
+            if (ImGui.BeginCombo("Custom Collection", string.IsNullOrEmpty(customCollectionName) ? "None" : customCollectionName))
+            {
+                // Add "None" option
+                if (ImGui.Selectable("None", string.IsNullOrEmpty(customCollectionName)))
+                {
+                    _configuration.CustomPenumbraCollectionName = string.Empty;
+                    EzConfig.Save();
+                }
+
+                // Get all collections from Penumbra
+                try
+                {
+                    var collections = Plugin.IpcManager.GetCollections();
+                    foreach (var collection in collections)
+                    {
+                        var isSelected = customCollectionName == collection.Value;
+                        if (ImGui.Selectable(collection.Value, isSelected))
+                        {
+                            _configuration.CustomPenumbraCollectionName = collection.Value;
+                            EzConfig.Save();
+                        }
+
+                        if (isSelected)
+                            ImGui.SetItemDefaultFocus();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    ImGui.Text("Error loading collections: " + ex.Message);
+                }
+
+                ImGui.EndCombo();
+            }
+
+            if (!string.IsNullOrEmpty(customCollectionName))
+            {
+                ImGui.Text("This collection's mods will override snapshot mods (higher priority).");
+                ImGui.Text("Perfect for animation mods, poses, etc. that should apply on top.");
+            }
+
+            ImGui.Spacing();
         }
     }
 }

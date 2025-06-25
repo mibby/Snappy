@@ -314,6 +314,11 @@ namespace Snappy.UI
                 if (tab)
                     DrawHistoryList("Customize+", _customizeHistory.Entries);
             }
+            using (var tab = ImUtf8.TabItem("Collection Merge"u8))
+            {
+                if (tab)
+                    DrawMergeCollectionSection();
+            }
         }
 
         private void SetHistoryEntryDescription(object entry, string newDescription)

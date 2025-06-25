@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Game.ClientState.Objects.Types;
 using Dalamud.Plugin;
@@ -18,16 +19,18 @@ namespace Snappy.IPC;
 public class IpcManager : IDisposable
 {
     private readonly DalamudUtil _dalamudUtil;
+    private readonly Plugin _plugin;
 
-    private readonly PenumbraIpc _penumbra;
+    public readonly PenumbraIpc _penumbra;
     private readonly GlamourerIpc _glamourer;
     private readonly CustomizeIpc _customize;
 
-    public IpcManager(IDalamudPluginInterface pi, DalamudUtil dalamudUtil)
+    public IpcManager(IDalamudPluginInterface pi, DalamudUtil dalamudUtil, Plugin plugin)
     {
         PluginLog.Debug("Creating IpcManager delegator");
 
         _dalamudUtil = dalamudUtil;
+        _plugin = plugin;
         _penumbra = new PenumbraIpc();
         _glamourer = new GlamourerIpc();
         _customize = new CustomizeIpc();
@@ -50,7 +53,7 @@ public class IpcManager : IDisposable
 
     public string GetMetaManipulations(int objIdx) => _penumbra.GetMetaManipulations(objIdx);
 
-    public Dictionary<string, HashSet<string>> PenumbraGetGameObjectResourcePaths(int objIdx) =>
+    public Dictionary<string, HashSet<string>>? PenumbraGetGameObjectResourcePaths(int objIdx) =>
         _penumbra.GetGameObjectResourcePaths(objIdx);
 
     public void PenumbraSetTempMods(
@@ -70,6 +73,128 @@ public class IpcManager : IDisposable
 
     public string[] PenumbraReverseResolvePlayer(string path) =>
         _penumbra.ReverseResolvePlayer(path);
+    public Dictionary<Guid, string> GetCollections() => _penumbra.GetCollections();
+    public void MergeCollectionWithTemporary(int objIdx, string customCollectionName)
+    {
+        PluginLog.Debug($"[UI] MergeCollectionWithTemporary called with objIdx={objIdx}, collection='{customCollectionName}'");
+
+        // This method will be called from the UI - we need to get the character and snapshot data
+        var activeSnapshots = _plugin.SnapshotManager.ActiveSnapshots;
+        PluginLog.Debug($"[UI] Found {activeSnapshots.Count} active snapshots");
+
+        var snapshot = activeSnapshots.FirstOrDefault(s => s.ObjectIndex == objIdx);
+        if (snapshot == null)
+        {
+            PluginLog.Debug($"[UI] No active snapshot found for object index {objIdx}");
+            return;
+        }
+
+        // Get the character object from the object index
+        var gameObject = Svc.Objects[objIdx];
+        var character = CharacterFactory.Convert(gameObject);
+        if (character == null)
+        {
+            PluginLog.Debug($"[UI] Could not convert game object at index {objIdx} to ICharacter");
+            return;
+        }
+
+        PluginLog.Debug($"[UI] Found active snapshot for character '{character.Name.TextValue}'");
+
+        // Try to load snapshot data from disk first (for saved snapshots)
+        var charaName = character.Name.TextValue;
+        var path = Path.Combine(_plugin.Configuration.WorkingDirectory, charaName);
+        var snapshotJsonPath = Path.Combine(path, "snapshot.json");
+
+        Dictionary<string, string> moddedPaths;
+        string manipulationString;
+
+        if (File.Exists(snapshotJsonPath))
+        {
+            PluginLog.Debug($"[UI] Loading snapshot data from disk at: {snapshotJsonPath}");
+            var infoJson = File.ReadAllText(snapshotJsonPath);
+            var snapshotInfo = System.Text.Json.JsonSerializer.Deserialize<Models.SnapshotInfo>(infoJson);
+            if (snapshotInfo == null)
+            {
+                PluginLog.Debug($"[UI] Failed to deserialize snapshot json for character {charaName}, aborting");
+                return;
+            }
+
+            PluginLog.Debug($"[UI] Successfully loaded snapshot info with {snapshotInfo.FileReplacements.Count} file replacements");
+
+            // Convert FileReplacements to the format expected by PenumbraIpc
+            moddedPaths = new Dictionary<string, string>();
+            foreach (var replacement in snapshotInfo.FileReplacements)
+            {
+                var gamePath = replacement.Key;
+                var hash = replacement.Value;
+                moddedPaths.Add(gamePath, Path.Combine(path, "_files", hash + ".dat"));
+            }
+            manipulationString = snapshotInfo.ManipulationString;
+        }
+        else
+        {
+            PluginLog.Debug($"[UI] No snapshot json found at {snapshotJsonPath}, this is a Brio actor with in-memory snapshot...");
+
+            // For Brio actors, we need to get the ORIGINAL snapshot data, not the current mixed state
+            // This ensures we always start from the clean original snapshot, not from any previous overrides
+            moddedPaths = GetOriginalSnapshotDataForBrioActor(character, objIdx);
+            manipulationString = GetMetaManipulations(objIdx);
+
+            PluginLog.Debug($"[UI] Retrieved {moddedPaths.Count} mods from original Brio actor snapshot");
+        }
+
+        PluginLog.Debug($"[UI] Calling PenumbraIpc.MergeCollectionWithTemporary...");
+
+        // Call the PenumbraIpc method directly with the UI-selected collection name
+        _penumbra.MergeCollectionWithTemporary(character, objIdx, customCollectionName,
+            moddedPaths, manipulationString);
+
+        PluginLog.Debug($"[UI] MergeCollectionWithTemporary call completed");
+    }
+
+    /// <summary>
+    /// Get the ORIGINAL snapshot data for a Brio actor by checking if we have stored snapshot data.
+    /// If we have stored data from a previous collection override, use that. Otherwise, we need to
+    /// capture the current snapshot data before applying any collection overrides.
+    /// </summary>
+    private Dictionary<string, string> GetOriginalSnapshotDataForBrioActor(ICharacter character, int objIdx)
+    {
+        PluginLog.Debug($"[UI] Getting ORIGINAL snapshot data for {character.Name.TextValue}");
+
+        try
+        {
+            // Check if we already have stored original snapshot data for this actor
+            var storedSnapshotData = _penumbra.GetStoredSnapshotData(objIdx);
+            if (storedSnapshotData != null)
+            {
+                PluginLog.Debug($"[UI] Found stored original snapshot data with {storedSnapshotData.Count} mods");
+                return storedSnapshotData;
+            }
+
+            // If no stored data, we need to capture the current snapshot data before applying any overrides
+            // This should be the original snapshot that was applied to the Brio actor
+            PluginLog.Debug($"[UI] No stored data found, capturing current snapshot data as original");
+            var originalFileReplacements = _plugin.SnapshotManager.GetFileReplacementsForCharacter(character);
+
+            var moddedPaths = new Dictionary<string, string>();
+            foreach (var replacement in originalFileReplacements)
+            {
+                foreach (var gamePath in replacement.GamePaths)
+                {
+                    moddedPaths[gamePath] = replacement.ResolvedPath;
+                }
+            }
+
+            PluginLog.Debug($"[UI] Captured {moddedPaths.Count} original file replacements from Brio actor");
+            return moddedPaths;
+        }
+        catch (Exception ex)
+        {
+            PluginLog.Error($"[UI] Error getting original Brio actor snapshot data: {ex.Message}");
+            PluginLog.Debug($"[UI] Using empty base - custom collection will provide all mods");
+            return new Dictionary<string, string>();
+        }
+    }
 
     // Glamourer passthroughs
     public GlamourerIpc GlamourerIpc => _glamourer;

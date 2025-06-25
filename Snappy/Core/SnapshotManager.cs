@@ -24,7 +24,7 @@ namespace Snappy.Core
 {
     public class SnapshotManager : IDisposable
     {
-        private record ActiveSnapshot(
+        public record ActiveSnapshot(
             int ObjectIndex,
             Guid? CustomizePlusProfileId,
             bool IsOnLocalPlayer
@@ -38,7 +38,8 @@ namespace Snappy.Core
             Dictionary<string, string> ResolvedPaths
         );
 
-        private readonly List<ActiveSnapshot> _activeSnapshots = new();
+        private readonly List<ActiveSnapshot> _activeSnapshots = [];
+        public IReadOnlyList<ActiveSnapshot> ActiveSnapshots => _activeSnapshots;
         private readonly Plugin Plugin;
         private bool _wasInGpose = false;
         private bool _initialized = false;
@@ -583,13 +584,26 @@ namespace Snappy.Core
                         );
                     }
                 }
+
                 Plugin.IpcManager.PenumbraRemoveTemporaryCollection(characterApplyTo.ObjectIndex);
-                Plugin.IpcManager.PenumbraSetTempMods(
-                    characterApplyTo,
-                    objIdx,
-                    moddedPaths,
-                    snapshotInfo.ManipulationString
-                );
+                // Check if we should merge with a custom collection
+                if (!string.IsNullOrEmpty(Plugin.Configuration.CustomPenumbraCollectionName))
+                {
+                    PluginLog.Debug(
+                        $"Merging snapshot with custom collection: {Plugin.Configuration.CustomPenumbraCollectionName}");
+                    Plugin.IpcManager._penumbra.MergeCollectionWithTemporary(characterApplyTo, objIdx,
+                        Plugin.Configuration.CustomPenumbraCollectionName, moddedPaths,
+                        snapshotInfo.ManipulationString);
+                }
+                else
+                {
+                    Plugin.IpcManager.PenumbraSetTempMods(
+                        characterApplyTo,
+                        objIdx,
+                        moddedPaths,
+                        snapshotInfo.ManipulationString
+                    );
+                }
             }
 
             _activeSnapshots.RemoveAll(s => s.ObjectIndex == characterApplyTo.ObjectIndex);
@@ -671,5 +685,22 @@ namespace Snappy.Core
                 JsonConvert.SerializeObject(customizeHistory, Formatting.Indented)
             );
         }
+
+        public IEnumerable<FileReplacement> GetFileReplacementsForCharacter(ICharacter character)
+        {
+            var penumbraReplacements = Plugin.IpcManager.PenumbraGetGameObjectResourcePaths(
+                character.ObjectIndex
+            );
+
+            foreach (var (resolvedPath, gamePaths) in penumbraReplacements)
+            {
+                if (!File.Exists(resolvedPath))
+                    continue;
+
+                yield return new FileReplacement(gamePaths.ToArray(), resolvedPath);
+            }
+        }
+
+        public record FileReplacement(string[] GamePaths, string ResolvedPath);
     }
 }

@@ -3,9 +3,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Numerics;
+using Dalamud.Game.ClientState.Objects.Types;
 using Dalamud.Interface;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Windowing;
+using ECommons.DalamudServices;
 using ECommons.GameHelpers;
 using ECommons.ImGuiMethods;
 using ECommons.Logging;
@@ -17,7 +19,9 @@ using OtterGui.Log;
 using OtterGui.Raii;
 using OtterGui.Text;
 using OtterGui.Widgets;
+using Snappy.Core;
 using Snappy.Models;
+using Snappy.Utils;
 
 namespace Snappy.UI;
 
@@ -109,6 +113,13 @@ public partial class MainWindow : Window, IDisposable
     private bool _openDeleteSnapshotPopup = false;
     private bool _popupDummy = true;
 
+    // Collection merge functionality
+    private string _selectedCollectionToMerge = string.Empty;
+    private int _cachedActiveCollectionCount;
+    private DateTime _lastCollectionCountUpdate = DateTime.MinValue;
+    private bool _cachedHasActiveSnapshot;
+    private DateTime _lastActiveSnapshotCheck = DateTime.MinValue;
+    private IReadOnlyList<SnapshotManager.ActiveSnapshot> ActiveSnapshots => Plugin.SnapshotManager.ActiveSnapshots;
     public MainWindow(Plugin plugin)
         : base(
             $"Snappy v{plugin.Version}",
@@ -137,6 +148,11 @@ public partial class MainWindow : Window, IDisposable
 
         Plugin.SnapshotsUpdated += OnSnapshotsChanged;
         Plugin.SnapshotManager.GPoseExited += ClearActorSelection;
+        Plugin.SnapshotManager.GPoseEntered += MarkActorListForRefresh;
+        Plugin.SnapshotManager.GPoseExited += MarkActorListForRefresh;
+
+        // Initial refresh
+        MarkActorListForRefresh();
     }
 
     private void OnSnapshotsChanged()
@@ -146,6 +162,16 @@ public partial class MainWindow : Window, IDisposable
         {
             UpdateSelectedActorState();
         }
+
+        // Invalidate caches when snapshots change to ensure UI responsiveness
+        InvalidateUICache();
+        MarkActorListForRefresh();
+    }
+
+    private void InvalidateUICache()
+    {
+        _lastActiveSnapshotCheck = DateTime.MinValue;
+        _lastCollectionCountUpdate = DateTime.MinValue;
     }
 
     private void OnSnapshotSelectionChanged(
@@ -201,6 +227,8 @@ public partial class MainWindow : Window, IDisposable
     public void Dispose()
     {
         Plugin.SnapshotManager.GPoseExited -= ClearActorSelection;
+        Plugin.SnapshotManager.GPoseEntered -= MarkActorListForRefresh;
+        Plugin.SnapshotManager.GPoseExited -= MarkActorListForRefresh;
         Plugin.SnapshotsUpdated -= OnSnapshotsChanged;
     }
 
@@ -560,6 +588,116 @@ public partial class MainWindow : Window, IDisposable
                     ImGui.CloseCurrentPopup();
                 }
             }
+        }
+    }
+
+    private void DrawMergeCollectionSection()
+    {
+        // Check if we have a selected actor and if they have an active snapshot
+        if (player == null || objIdxSelected == null)
+        {
+            ImGui.TextColored(new Vector4(0.7f, 0.7f, 0.7f, 1), "No actor selected.");
+            ImGui.Text("Select an actor from the left panel first.");
+            return;
+        }
+
+        // Cache active snapshot check to reduce flickering
+        var now = DateTime.UtcNow;
+        if ((now - _lastActiveSnapshotCheck).TotalSeconds > 0.5) // Update every 500ms
+        {
+            _cachedHasActiveSnapshot = ActiveSnapshots.Any(s => s.ObjectIndex == objIdxSelected.Value);
+            _lastActiveSnapshotCheck = now;
+        }
+
+        if (!_cachedHasActiveSnapshot)
+        {
+            ImGui.TextColored(new Vector4(0.7f, 0.7f, 0.7f, 1), "No active snapshot for this actor.");
+            ImGui.Text($"Load a snapshot on {player.Name.TextValue} first to use collection merging.");
+            return;
+        }
+
+        ImGui.TextColored(new Vector4(1, 1, 0, 1), "Override Snapshot with Collection");
+        ImGui.Text($"Apply collection mods on top of {player.Name.TextValue}'s snapshot");
+        ImGui.Text("(Collection has priority over snapshot)");
+        ImGui.Spacing();
+
+        // Collection selector
+        if (ImGui.BeginCombo("Collection to Apply", _selectedCollectionToMerge ?? "Select Collection"))
+        {
+            // Get all collections from Penumbra
+            try
+            {
+                var collections = Plugin.IpcManager.GetCollections();
+
+                foreach (var collection in collections)
+                {
+                    var isSelected = _selectedCollectionToMerge == collection.Value;
+                    if (ImGui.Selectable(collection.Value, isSelected))
+                    {
+                        _selectedCollectionToMerge = collection.Value;
+                    }
+
+                    if (isSelected)
+                        ImGui.SetItemDefaultFocus();
+                }
+            }
+            catch (Exception ex)
+            {
+                ImGui.Text("Error loading collections: " + ex.Message);
+            }
+
+            ImGui.EndCombo();
+        }
+
+        ImGui.Spacing();
+
+        bool hasValidCollection = !string.IsNullOrEmpty(_selectedCollectionToMerge);
+
+        if (ImGui.Button("Apply Collection Override", new Vector2(200, 0)) && hasValidCollection)
+        {
+            Plugin.IpcManager.MergeCollectionWithTemporary(
+                objIdxSelected.Value,
+                _selectedCollectionToMerge!);
+
+            // Refresh the actor to apply changes immediately
+            Plugin.IpcManager._penumbra.Redraw(objIdxSelected.Value);
+        }
+
+        if (!hasValidCollection && ImGui.IsItemHovered())
+        {
+            ImGui.SetTooltip("Select a collection first");
+        }
+
+        ImGui.SameLine();
+        if (ImGui.Button("Refresh Collections", new Vector2(150, 0)))
+        {
+            Plugin.IpcManager._penumbra.RefreshAllMergedCollections();
+        }
+
+        if (ImGui.IsItemHovered())
+        {
+            ImGui.SetTooltip("Refresh all active collection overrides when you've made changes to your Penumbra collections");
+        }
+
+        ImGui.Spacing();
+        ImGui.Separator();
+        ImGui.Spacing();
+
+        // Show status of active merged collections (cached to reduce flickering)
+        var currentTime = DateTime.UtcNow;
+        if ((currentTime - _lastCollectionCountUpdate).TotalSeconds > 5.0) // Update every 5 seconds
+        {
+            _cachedActiveCollectionCount = Plugin.IpcManager._penumbra.GetActiveMergedCollectionCount();
+            _lastCollectionCountUpdate = currentTime;
+        }
+
+        if (_cachedActiveCollectionCount > 0)
+        {
+            ImGui.TextColored(new Vector4(0.7f, 0.7f, 1, 1), $"Active collection overrides: {_cachedActiveCollectionCount}");
+        }
+        else
+        {
+            ImGui.TextColored(new Vector4(0.7f, 0.7f, 0.7f, 1), "No active collection overrides");
         }
     }
 

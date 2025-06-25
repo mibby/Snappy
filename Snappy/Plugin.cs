@@ -96,7 +96,7 @@ namespace Snappy
             )!;
 
             this.DalamudUtil = new DalamudUtil();
-            this.IpcManager = new IpcManager(pluginInterface, this.DalamudUtil);
+            this.IpcManager = new IpcManager(pluginInterface, this.DalamudUtil, this);
             this.SnapshotManager = new SnapshotManager(this);
             this.McdfManager = new McdfManager(this, this.SnapshotManager);
             this.PmpManager = new PmpExportManager(this);

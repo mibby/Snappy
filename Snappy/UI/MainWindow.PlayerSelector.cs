@@ -29,9 +29,9 @@ namespace Snappy.UI
         private bool _isActorSnapshottable = false;
         private bool _snapshotExistsForActor = false;
         private bool _isActorModifiable = false;
-        private readonly List<ICharacter> _sortedActorList = new();
-        private readonly Stopwatch _actorListRefreshStopwatch = Stopwatch.StartNew();
-        private const int ActorListRefreshIntervalMs = 2000; // Refresh every 2 seconds.
+        private readonly List<ICharacter> _sortedActorList = [];
+        private bool _actorListNeedsRefresh = true;
+        private DateTime _lastActorListUpdate = DateTime.MinValue;
 
         private void ClearSelectedActorState()
         {
@@ -42,6 +42,11 @@ namespace Snappy.UI
             _isActorSnapshottable = false;
             _snapshotExistsForActor = false;
             _isActorModifiable = false;
+        }
+
+        private void MarkActorListForRefresh()
+        {
+            _actorListNeedsRefresh = true;
         }
 
         private void UpdateSelectedActorState()
@@ -170,6 +175,9 @@ namespace Snappy.UI
                     this.player = selectablePlayer;
                     this.objIdxSelected = objIdx;
                     UpdateSelectedActorState();
+
+                    // Invalidate caches when actor selection changes
+                    InvalidateUICache();
                 }
             }
         }
@@ -235,10 +243,13 @@ namespace Snappy.UI
 
         private void DrawPlayerSelector()
         {
-            if (_actorListRefreshStopwatch.ElapsedMilliseconds > ActorListRefreshIntervalMs)
+            // Only refresh if needed and not too frequently (max once per 5 seconds)
+            var now = DateTime.UtcNow;
+            if (_actorListNeedsRefresh && (now - _lastActorListUpdate).TotalSeconds > 5.0)
             {
                 RefreshSortedActorList();
-                _actorListRefreshStopwatch.Restart();
+                _actorListNeedsRefresh = false;
+                _lastActorListUpdate = now;
             }
 
             ImGui.BeginGroup();

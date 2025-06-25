@@ -13,5 +13,7 @@ namespace Snappy
         public bool AllowOutsideGpose { get; set; } = false;
 
         public string WorkingDirectory { get; set; } = string.Empty;
+        
+        public string CustomPenumbraCollectionName { get; set; } = string.Empty;
     }
 }
