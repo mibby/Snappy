@@ -301,6 +301,14 @@ public class SnapshotManager : IDisposable
         var penumbraReplacements = _plugin.IpcManager.PenumbraGetGameObjectResourcePaths(
             character.ObjectIndex
         );
+        if (penumbraReplacements == null)
+            return new SnapshotData(
+                newGlamourer,
+                newCustomize,
+                newManipulation,
+                newFileReplacements,
+                resolvedPaths
+            );
         foreach (var (resolvedPath, gamePaths) in penumbraReplacements)
         {
             if (!File.Exists(resolvedPath))
@@ -692,6 +700,7 @@ public class SnapshotManager : IDisposable
             character.ObjectIndex
         );
 
+        if (penumbraReplacements == null) yield break;
         foreach (var (resolvedPath, gamePaths) in penumbraReplacements)
         {
             if (!File.Exists(resolvedPath))

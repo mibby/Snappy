@@ -14,5 +14,5 @@ public class Configuration : IEzConfig
 
     public string WorkingDirectory { get; set; } = string.Empty;
         
-    public string CustomPenumbraCollectionName { get; set; } = string.Empty;
+    public string? CustomPenumbraCollectionName { get; set; } = string.Empty;
 }

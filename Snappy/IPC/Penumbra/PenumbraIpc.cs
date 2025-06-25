@@ -219,40 +219,36 @@ public class PenumbraIpc : IDisposable
 
     public string ResolvePath(string path)
     {
-        if (!Check())
-            return path;
-        return _resolvePlayerPath.Invoke(path) ?? path;
+        return !Check() ? path : _resolvePlayerPath.Invoke(path);
     }
 
     public string ResolvePathObject(string path, int objIdx)
     {
-        if (!Check())
-            return path;
-        return _resolveGameObjectPath.Invoke(path, objIdx) ?? path;
+        return !Check() ? path : _resolveGameObjectPath.Invoke(path, objIdx);
     }
 
     public string[] ReverseResolveObject(string path, int objIdx)
     {
         if (!Check())
-            return new[] { path };
+            return [path];
         var result = _reverseGameObjectPath.Invoke(path, objIdx);
-        return result.Length > 0 ? result : new[] { path };
+        return result.Length > 0 ? result : [path];
     }
 
     public string[] ReverseResolvePlayer(string path)
     {
         if (!Check())
-            return new[] { path };
+            return [path];
         var result = _reversePlayerPath.Invoke(path);
-        return result.Length > 0 ? result : new[] { path };
+        return result.Length > 0 ? result : [path];
     }
 
-    public Dictionary<Guid, string> GetCollections()
+    public Dictionary<Guid, string?> GetCollections()
     {
         return !Check() ? new Dictionary<Guid, string>() : _getCollections.Invoke();
     }
 
-    public List<(Guid Id, string Name)> GetCollectionsByIdentifier(string identifier)
+    public List<(Guid Id, string Name)> GetCollectionsByIdentifier(string? identifier)
     {
         return !Check() ? [] : _getCollectionsByIdentifier.Invoke(identifier);
     }
@@ -272,7 +268,7 @@ public class PenumbraIpc : IDisposable
         return !Check() ? new Dictionary<string, string>() : _getModList.Invoke();
     }
 
-    public void MergeCollectionWithTemporary(ICharacter character, int? idx, string customCollectionName, Dictionary<string, string> snapshotMods, string snapshotManips)
+    public void MergeCollectionWithTemporary(ICharacter character, int? idx, string? customCollectionName, Dictionary<string, string> snapshotMods, string snapshotManips)
     {
         if (!Check() || idx == null || string.IsNullOrEmpty(customCollectionName)) return;
 
@@ -408,8 +404,9 @@ public class PenumbraIpc : IDisposable
                                 if (byNameMethod != null)
                                 {
                                     // Call ByName method with out parameter
-                                    var parameters = new object[] { customCollectionName, null };
-                                    var found = (bool)byNameMethod.Invoke(storage, parameters);
+                                    object?[] parameters = [customCollectionName, null];
+                                    var invokeResult = byNameMethod.Invoke(storage, parameters);
+                                    var found = invokeResult is bool boolResult && boolResult;
                                     var collection = parameters[1]; // out parameter
 
                                     if (found && collection != null)

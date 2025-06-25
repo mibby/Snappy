@@ -10,7 +10,7 @@ public record McdfData
     public string GlamourerData { get; set; } = string.Empty;
     public string CustomizePlusData { get; set; } = string.Empty;
     public string ManipulationData { get; set; } = string.Empty;
-    public List<FileData> Files { get; set; } = new();
+    public List<FileData> Files { get; set; } = [];
 
     public byte[] ToByteArray()
     {

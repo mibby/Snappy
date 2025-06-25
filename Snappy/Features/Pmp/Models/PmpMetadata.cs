@@ -8,5 +8,5 @@ internal class PmpMetadata
     public string Description { get; set; } = "Snapped!";
     public string Version { get; set; } = "1.0.0";
     public string Website { get; set; } = "";
-    public string[] ModTags { get; set; } = { };
+    public string[] ModTags { get; set; } = [];
 }

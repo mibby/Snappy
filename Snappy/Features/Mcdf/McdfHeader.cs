@@ -9,7 +9,7 @@ public record McdfHeader(byte Version, McdfData CharaFileData)
 
     public byte Version { get; set; } = Version;
     public McdfData CharaFileData { get; set; } = CharaFileData;
-    public string FilePath { get; private set; }
+    public string? FilePath { get; private set; }
 
     public void WriteToStream(BinaryWriter writer)
     {

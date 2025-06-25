@@ -110,7 +110,7 @@ public partial class MainWindow : Window, IDisposable
     private bool _popupDummy = true;
 
     // Collection merge functionality
-    private string _selectedCollectionToMerge = string.Empty;
+    private string? _selectedCollectionToMerge = string.Empty;
     private int _cachedActiveCollectionCount;
     private DateTime _lastCollectionCountUpdate = DateTime.MinValue;
     private bool _cachedHasActiveSnapshot;

@@ -351,7 +351,7 @@ public sealed class Plugin : IDalamudPlugin
         return 0;
     }
 
-    private async Task<(bool success, int migratedCount)> BackupAndMigrateOldSnapshotsAsync(
+    private Task<(bool success, int migratedCount)> BackupAndMigrateOldSnapshotsAsync(
         List<string> dirsToMigrate,
         bool isManual
     )
@@ -410,7 +410,7 @@ public sealed class Plugin : IDalamudPlugin
                     "Failed to create snapshot backup. Aborting migration to ensure data safety.";
                 Notify.Error($"{errorMsg}\n{ex.Message}");
                 PluginLog.Error($"{errorMsg} {ex}");
-                return (false, 0);
+                return Task.FromResult((false, 0));
             }
 
             var migratedCount = 0;
@@ -424,8 +424,8 @@ public sealed class Plugin : IDalamudPlugin
             {
                 Notify.Success("Snapshot migration complete.");
             }
-            return (true, migratedCount);
+            return Task.FromResult((true, migratedCount));
         }
-        return (true, 0);
+        return Task.FromResult((true, 0));
     }
 }
