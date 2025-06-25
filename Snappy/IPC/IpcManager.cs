@@ -75,7 +75,7 @@ public class IpcManager : IDisposable
 
     public string[] PenumbraReverseResolvePlayer(string path) =>
         _penumbra.ReverseResolvePlayer(path);
-    public Dictionary<Guid, string?> GetCollections() => _penumbra.GetCollections();
+    public Dictionary<Guid, string> GetCollections() => _penumbra.GetCollections();
     public void MergeCollectionWithTemporary(int objIdx, string? customCollectionName)
     {
         PluginLog.Debug($"[UI] MergeCollectionWithTemporary called with objIdx={objIdx}, collection='{customCollectionName}'");

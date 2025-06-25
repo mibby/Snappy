@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
 using Dalamud.Game.ClientState.Objects.Enums;
 using Dalamud.Game.ClientState.Objects.Types;
+using Dalamud.Interface;
 using ECommons.DalamudServices;
 using ECommons.GameHelpers;
 using ImGuiNET;
@@ -21,37 +23,33 @@ public partial class MainWindow
     public const int FittingRoomIndex = 242;
     public const int DyePreviewIndex = 243;
 
-    private string playerFilter = string.Empty;
-    private string playerFilterLower = string.Empty;
-    private string currentLabel = string.Empty;
-    private ICharacter? player;
-    private int? objIdxSelected;
+    private string _playerFilter = string.Empty;
+    private string _playerFilterLower = string.Empty;
+    private string _currentLabel = string.Empty;
+    private ICharacter? _player;
+    private int? _objIdxSelected;
     private bool _isActorSnapshottable;
     private bool _snapshotExistsForActor;
     private bool _isActorModifiable;
     private readonly List<ICharacter> _sortedActorList = [];
-    private bool _actorListNeedsRefresh = true;
-    private DateTime _lastActorListUpdate = DateTime.MinValue;
+    private readonly Stopwatch _actorListRefreshStopwatch = Stopwatch.StartNew();
+    private const int ActorListRefreshIntervalMs = 2000; // Refresh every 2 seconds.
+
 
     private void ClearSelectedActorState()
     {
-        player = null;
-        currentLabel = string.Empty;
-        objIdxSelected = null;
+        _player = null;
+        _currentLabel = string.Empty;
+        _objIdxSelected = null;
 
         _isActorSnapshottable = false;
         _snapshotExistsForActor = false;
         _isActorModifiable = false;
     }
 
-    private void MarkActorListForRefresh()
-    {
-        _actorListNeedsRefresh = true;
-    }
-
     private void UpdateSelectedActorState()
     {
-        if (player == null || objIdxSelected == null)
+        if (_player == null || _objIdxSelected == null)
         {
             ClearSelectedActorState();
             return;
@@ -65,7 +63,7 @@ public partial class MainWindow
         }
         else
         {
-            var isLocalPlayer = player.ObjectIndex == Player.Object?.ObjectIndex;
+            var isLocalPlayer = _player.ObjectIndex == Player.Object?.ObjectIndex;
             _isActorModifiable =
                 isLocalPlayer
                 && _plugin.Configuration.DisableAutomaticRevert
@@ -74,7 +72,7 @@ public partial class MainWindow
 
         // --- Update snapshottable state ---
         _snapshotExistsForActor =
-            _plugin.SnapshotManager.FindSnapshotPathForActor(player) != null;
+            _plugin.SnapshotManager.FindSnapshotPathForActor(_player) != null;
 
         if (inGpose)
         {
@@ -83,14 +81,14 @@ public partial class MainWindow
         else
         {
             var isSelf = string.Equals(
-                player.Name.TextValue,
+                _player.Name.TextValue,
                 Player.Name,
                 StringComparison.Ordinal
             );
             // This uses a 5-second cache internally.
             var isMarePaired = _plugin
                 .IpcManager.GetMarePairedPlayers()
-                .Any(p => p.Address == player.Address);
+                .Any(p => p.Address == _player.Address);
             _isActorSnapshottable = isSelf || isMarePaired;
         }
     }
@@ -142,10 +140,35 @@ public partial class MainWindow
 
     private void DrawPlayerFilter()
     {
-        var width = ImGui.GetContentRegionAvail().X;
-        ImGui.SetNextItemWidth(width);
-        if (ImUtf8.InputText("##playerFilter", ref playerFilter, "Filter Players..."))
-            playerFilterLower = playerFilter.ToLowerInvariant();
+        const float buttonSize = 24f;
+        const float spacing = 4f;          // consistent spacing between elements
+
+        var availableWidth = ImGui.GetContentRegionAvail().X;
+        var inputWidth = availableWidth - buttonSize - spacing;
+
+        // Input field
+        ImGui.SetNextItemWidth(inputWidth);
+        if (ImUtf8.InputText("##playerFilter", ref _playerFilter, "Filter Players..."))
+            _playerFilterLower = _playerFilter.ToLowerInvariant();
+
+        // Consistent spacing between input and button
+        ImGui.SameLine(0, spacing);
+
+        // Refresh button
+        if (ImUtf8.IconButton(
+                FontAwesomeIcon.Sync,
+                tooltip: "Refresh List",
+                size: new Vector2(buttonSize, 0),
+                disabled: false)
+           )
+        {
+            ClearActorSelection();
+        }
+
+        if (ImGui.IsItemHovered())
+        {
+            ImGui.SetTooltip("Refresh Actor List");
+        }
     }
 
     private void DrawGPoseSelectable(ICharacter gposePlayer, int objIdx)
@@ -159,10 +182,10 @@ public partial class MainWindow
 
     private void DrawSelectable(ICharacter selectablePlayer, string label, int objIdx)
     {
-        if (playerFilterLower.Any() && !label.ToLowerInvariant().Contains(playerFilterLower))
+        if (_playerFilterLower.Any() && !label.ToLowerInvariant().Contains(_playerFilterLower))
             return;
 
-        var isSelected = currentLabel == label;
+        var isSelected = _currentLabel == label;
         if (ImUtf8.Selectable(label, isSelected))
         {
             if (isSelected)
@@ -171,13 +194,10 @@ public partial class MainWindow
             }
             else
             {
-                currentLabel = label;
-                player = selectablePlayer;
-                objIdxSelected = objIdx;
+                _currentLabel = label;
+                _player = selectablePlayer;
+                _objIdxSelected = objIdx;
                 UpdateSelectedActorState();
-
-                // Invalidate caches when actor selection changes
-                InvalidateUICache();
             }
         }
     }
@@ -205,7 +225,7 @@ public partial class MainWindow
 
     private (string Text, string Tooltip, bool IsDisabled) GetSnapshotButtonState()
     {
-        if (player == null)
+        if (_player == null)
         {
             return ("Save Snapshot", "Select an actor to save or update its snapshot.", true);
         }
@@ -233,23 +253,20 @@ public partial class MainWindow
         {
             return (
                 "Update Snapshot",
-                $"Update existing snapshot for {player.Name.TextValue}.\n(Folder can be renamed freely)",
+                $"Update existing snapshot for {_player.Name.TextValue}.\n(Folder can be renamed freely)",
                 false
             );
         }
 
-        return ("Save Snapshot", $"Save a new snapshot for {player.Name.TextValue}.", false);
+        return ("Save Snapshot", $"Save a new snapshot for {_player.Name.TextValue}.", false);
     }
 
     private void DrawPlayerSelector()
     {
-        // Only refresh if needed and not too frequently (max once per 5 seconds)
-        var now = DateTime.UtcNow;
-        if (_actorListNeedsRefresh && (now - _lastActorListUpdate).TotalSeconds > 5.0)
+        if (_actorListRefreshStopwatch.ElapsedMilliseconds > ActorListRefreshIntervalMs)
         {
             RefreshSortedActorList();
-            _actorListNeedsRefresh = false;
-            _lastActorListUpdate = now;
+            _actorListRefreshStopwatch.Restart();
         }
 
         ImGui.BeginGroup();
@@ -299,7 +316,7 @@ public partial class MainWindow
             )
         )
         {
-            var updatedSnapshotPath = _plugin.SnapshotManager.UpdateSnapshot(player!);
+            var updatedSnapshotPath = _plugin.SnapshotManager.UpdateSnapshot(_player!);
             if (updatedSnapshotPath != null)
             {
                 _plugin.InvokeSnapshotsUpdated();

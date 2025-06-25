@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using Dalamud.Game.ClientState.Objects.Types;
@@ -243,7 +244,7 @@ public class PenumbraIpc : IDisposable
         return result.Length > 0 ? result : [path];
     }
 
-    public Dictionary<Guid, string?> GetCollections()
+    public Dictionary<Guid, string> GetCollections()
     {
         return !Check() ? new Dictionary<Guid, string>() : _getCollections.Invoke();
     }
@@ -272,13 +273,14 @@ public class PenumbraIpc : IDisposable
     {
         if (!Check() || idx == null || string.IsNullOrEmpty(customCollectionName)) return;
 
-        PluginLog.Debug($"Attempting to merge custom collection '{customCollectionName}' with snapshot for actor {character.Name.TextValue}");
+        PluginLog.Debug($"[MERGE] Attempting to merge custom collection '{customCollectionName}' with snapshot for actor {character.Name.TextValue}");
+        PluginLog.Debug($"[MERGE] Received {snapshotMods.Count} snapshot mods to merge");
 
         // Get the custom collection by name
         var collections = GetCollectionsByIdentifier(customCollectionName);
         if (collections.Count == 0)
         {
-            PluginLog.Debug($"Custom collection '{customCollectionName}' not found");
+            PluginLog.Debug($"[MERGE] Custom collection '{customCollectionName}' not found");
             return;
         }
 
@@ -406,7 +408,7 @@ public class PenumbraIpc : IDisposable
                                     // Call ByName method with out parameter
                                     object?[] parameters = [customCollectionName, null];
                                     var invokeResult = byNameMethod.Invoke(storage, parameters);
-                                    var found = invokeResult is bool boolResult && boolResult;
+                                    var found = invokeResult is true;
                                     var collection = parameters[1]; // out parameter
 
                                     if (found && collection != null)
@@ -429,16 +431,28 @@ public class PenumbraIpc : IDisposable
 
                                             if (keysProperty != null && itemProperty != null)
                                             {
-                                                var keys = keysProperty.GetValue(resolvedFiles) as IEnumerable;
-                                                if (keys != null)
+                                                if (keysProperty.GetValue(resolvedFiles) is IEnumerable keys)
                                                 {
                                                     foreach (var key in keys)
                                                     {
-                                                        var modPath = itemProperty.GetValue(resolvedFiles, new[] { key });
+                                                        var modPath = itemProperty.GetValue(resolvedFiles, [key]);
                                                         if (modPath != null)
                                                         {
-                                                            // Get the string representation of the game path
-                                                            var gamePathStr = key.ToString();
+                                                            // Try to get the game path in the correct format
+                                                            string? gamePathStr = null;
+
+                                                            // First try to get the Path property from the key (if it's a GamePath object)
+                                                            var keyPathProperty = key.GetType().GetProperty("Path");
+                                                            if (keyPathProperty != null)
+                                                            {
+                                                                gamePathStr = keyPathProperty.GetValue(key)?.ToString();
+                                                            }
+
+                                                            // If that didn't work, try ToString() as fallback
+                                                            if (string.IsNullOrEmpty(gamePathStr))
+                                                            {
+                                                                gamePathStr = key.ToString();
+                                                            }
 
                                                             // Get the mod file path from ModPath
                                                             var pathProperty = modPath.GetType().GetProperty("Path");
@@ -517,11 +531,26 @@ public class PenumbraIpc : IDisposable
             PluginLog.Debug($"  Snapshot mod: {mod.Key} => {mod.Value}");
         }
 
+        // Normalize all paths before merging to ensure consistency
+        var normalizedSnapshotMods = new Dictionary<string, string>();
+        foreach (var mod in snapshotMods)
+        {
+            var normalizedKey = mod.Key.Replace('\\', '/').ToLowerInvariant();
+            normalizedSnapshotMods[normalizedKey] = mod.Value;
+        }
+
+        var normalizedCustomMods = new Dictionary<string, string>();
+        foreach (var mod in customMods)
+        {
+            var normalizedKey = mod.Key.Replace('\\', '/').ToLowerInvariant();
+            normalizedCustomMods[normalizedKey] = mod.Value;
+        }
+
         // Merge: snapshot mods first (base), then custom collection mods override them
         // This ensures animations from custom collection take priority
-        var mergedMods = new Dictionary<string, string>(snapshotMods);
+        var mergedMods = new Dictionary<string, string>(normalizedSnapshotMods);
         var overrideCount = 0;
-        foreach (var customMod in customMods)
+        foreach (var customMod in normalizedCustomMods)
         {
             var wasOverride = mergedMods.ContainsKey(customMod.Key);
             mergedMods[customMod.Key] = customMod.Value; // Custom collection mods override snapshot mods
@@ -537,7 +566,45 @@ public class PenumbraIpc : IDisposable
             }
         }
 
-        PluginLog.Debug($"Merged {snapshotMods.Count} snapshot mods with {customMods.Count} custom collection mods. {overrideCount} files were overridden. Total: {mergedMods.Count}");
+        // Validate and filter out invalid paths before sending to Penumbra
+        var validMods = new Dictionary<string, string>();
+        var invalidCount = 0;
+
+        foreach (var mod in mergedMods)
+        {
+            // Basic validation - check for null/empty paths and basic path structure
+            if (string.IsNullOrWhiteSpace(mod.Key) || string.IsNullOrWhiteSpace(mod.Value))
+            {
+                invalidCount++;
+                PluginLog.Debug($"Skipping invalid mod with null/empty path: '{mod.Key}' => '{mod.Value}'");
+                continue;
+            }
+
+            // Check if the game path looks valid (should not contain backslashes, should have forward slashes)
+            if (mod.Key.Contains('\\') || !mod.Key.Contains('/'))
+            {
+                invalidCount++;
+                PluginLog.Debug($"Skipping invalid game path format: '{mod.Key}'");
+                continue;
+            }
+
+            // Check if the file path exists (for snapshot files) or looks valid (for custom collection files)
+            if (mod.Value.EndsWith(".dat") && !File.Exists(mod.Value))
+            {
+                invalidCount++;
+                PluginLog.Debug($"Skipping missing snapshot file: '{mod.Key}' => '{mod.Value}'");
+                continue;
+            }
+
+            validMods[mod.Key] = mod.Value;
+        }
+
+        if (invalidCount > 0)
+        {
+            PluginLog.Debug($"Filtered out {invalidCount} invalid mod paths. Using {validMods.Count} valid mods.");
+        }
+
+        PluginLog.Debug($"Merged {normalizedSnapshotMods.Count} snapshot mods with {normalizedCustomMods.Count} custom collection mods. {overrideCount} files were overridden. {invalidCount} invalid paths filtered. Final total: {validMods.Count}");
 
         // Create and apply the merged temporary collection
         var name = "Snap_" + character.Name.TextValue + "_" + idx.Value + "_Merged";
@@ -550,8 +617,8 @@ public class PenumbraIpc : IDisposable
         var assign = _assignTempCollection.Invoke(tempCollection, idx.Value);
         PluginLog.Debug($"Assigned merged temporary collection to actor {idx.Value}: {assign}");
 
-        // Add the merged mods to the temporary collection
-        var result = _addTempMod.Invoke("SnapMerged", tempCollection, mergedMods, snapshotManips, 0);
+        // Add the validated merged mods to the temporary collection
+        var result = _addTempMod.Invoke("SnapMerged", tempCollection, validMods, snapshotManips, 0);
         PluginLog.Debug($"Added merged mods to temporary collection: {result}");
 
         // PROPER FIX: Copy the emote data changes from the custom collection to the temporary collection

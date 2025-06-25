@@ -469,8 +469,8 @@ public partial class MainWindow
         )
         {
             _plugin.SnapshotManager.LoadSnapshot(
-                player!,
-                objIdxSelected!.Value,
+                _player!,
+                _objIdxSelected!.Value,
                 _selectedSnapshot!.FullName,
                 entry as GlamourerHistoryEntry,
                 entry as CustomizeHistoryEntry
