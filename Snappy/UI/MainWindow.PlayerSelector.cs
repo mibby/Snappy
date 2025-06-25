@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
 using Dalamud.Game.ClientState.Objects.Enums;
@@ -31,9 +30,6 @@ public partial class MainWindow
     private bool _isActorSnapshottable;
     private bool _snapshotExistsForActor;
     private bool _isActorModifiable;
-    private readonly List<ICharacter> _sortedActorList = [];
-    private readonly Stopwatch _actorListRefreshStopwatch = Stopwatch.StartNew();
-    private const int ActorListRefreshIntervalMs = 2000; // Refresh every 2 seconds.
 
 
     private void ClearSelectedActorState()
@@ -93,9 +89,8 @@ public partial class MainWindow
         }
     }
 
-    private void RefreshSortedActorList()
+    private List<ICharacter> GetCurrentSortedActorList()
     {
-        _sortedActorList.Clear();
         var uniqueActors = new Dictionary<IntPtr, ICharacter>();
 
         // Add self
@@ -104,7 +99,7 @@ public partial class MainWindow
             uniqueActors[Player.Object.Address] = Player.Object;
         }
 
-        // Add Mare players
+        // Add Mare players (uses 1-second cache internally)
         var marePlayers = _plugin.IpcManager.GetMarePairedPlayers();
         foreach (var marePlayer in marePlayers)
         {
@@ -114,10 +109,10 @@ public partial class MainWindow
             }
         }
 
-        _sortedActorList.AddRange(uniqueActors.Values);
+        var sortedList = uniqueActors.Values.ToList();
 
         // Local player always on top, the rest alphabetical.
-        _sortedActorList.Sort(
+        sortedList.Sort(
             (a, b) =>
             {
                 var isALocalPlayer = Player.Available && a.Address == Player.Object.Address;
@@ -136,6 +131,8 @@ public partial class MainWindow
                 );
             }
         );
+
+        return sortedList;
     }
 
     private void DrawPlayerFilter()
@@ -157,11 +154,13 @@ public partial class MainWindow
         // Refresh button
         if (ImUtf8.IconButton(
                 FontAwesomeIcon.Sync,
-                tooltip: "Refresh List",
+                tooltip: "Refresh Actor List",
                 size: new Vector2(buttonSize, 0),
                 disabled: false)
            )
         {
+            // Force refresh the Mare cache and clear selection
+            _plugin.IpcManager.RefreshMarePairedPlayers();
             ClearActorSelection();
         }
 
@@ -263,12 +262,6 @@ public partial class MainWindow
 
     private void DrawPlayerSelector()
     {
-        if (_actorListRefreshStopwatch.ElapsedMilliseconds > ActorListRefreshIntervalMs)
-        {
-            RefreshSortedActorList();
-            _actorListRefreshStopwatch.Restart();
-        }
-
         ImGui.BeginGroup();
         DrawPlayerFilter();
 
@@ -285,8 +278,10 @@ public partial class MainWindow
         {
             if (child)
             {
+                // Get real-time sorted actor list (Mare players + self)
                 if (Svc.Objects[201] != null)
                 {
+                    // In GPose, show GPose actors + self
                     for (var i = GPoseObjectId; i < GPoseObjectId + 48; ++i)
                     {
                         var p = CharacterFactory.Convert(Svc.Objects[i]);
@@ -297,7 +292,9 @@ public partial class MainWindow
                 }
                 else
                 {
-                    foreach (var actor in _sortedActorList)
+                    // Outside GPose, show filtered Mare players + self
+                    var sortedActors = GetCurrentSortedActorList();
+                    foreach (var actor in sortedActors)
                     {
                         DrawPlayerSelectable(actor);
                     }

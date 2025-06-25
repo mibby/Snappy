@@ -112,6 +112,7 @@ public partial class MainWindow : Window, IDisposable
     private string? _selectedCollectionToMerge = string.Empty;
     // Reference to active snapshots from the SnapshotManager
     private IReadOnlyList<SnapshotManager.ActiveSnapshot> ActiveSnapshots => _plugin.SnapshotManager.ActiveSnapshots;
+    private bool _lastIsOpenState;
 
     public MainWindow(Plugin plugin)
         : base(
@@ -360,6 +361,20 @@ public partial class MainWindow : Window, IDisposable
         );
 
         return result && !disabled;
+    }
+
+    public override void Update()
+    {
+        // Track window open/close state changes - Update is called every frame regardless of window state
+        // This ensures we catch both open AND close events properly
+        if (_lastIsOpenState != IsOpen)
+        {
+            _lastIsOpenState = IsOpen;
+            _plugin.IpcManager.SetUiOpen(IsOpen);
+            PluginLog.Debug($"MainWindow state changed: IsOpen = {IsOpen}");
+        }
+
+        base.Update();
     }
 
     public override void Draw()

@@ -223,7 +223,8 @@ public class IpcManager : IDisposable
     // Mare passthroughs
     private List<ICharacter> _cachedMarePairedPlayers = new();
     private DateTime _lastMareCacheUpdateTime = DateTime.MinValue;
-    private readonly TimeSpan _mareCacheDuration = TimeSpan.FromSeconds(5);
+    private readonly TimeSpan _mareCacheDuration = TimeSpan.FromSeconds(1);
+    private bool _isUiOpen; // Starts false - no processing until UI opens
 
     private IDictionary? GetAllMareClientPairs()
     {
@@ -290,14 +291,46 @@ public class IpcManager : IDisposable
         return null;
     }
 
+    public void SetUiOpen(bool isOpen)
+    {
+        if (_isUiOpen == isOpen) return;
+        _isUiOpen = isOpen;
+
+        if (!isOpen)
+        {
+            // Clear cache when UI is closed to stop all processing
+            _cachedMarePairedPlayers.Clear();
+            _lastMareCacheUpdateTime = DateTime.MinValue;
+            PluginLog.Debug("UI closed - cleared Mare paired players cache.");
+        }
+        else
+        {
+            PluginLog.Debug("UI opened - Mare paired players cache will be refreshed on next request.");
+        }
+    }
+
     public List<ICharacter> GetMarePairedPlayers()
     {
+        // STRICT: If UI is not open, return empty list - absolutely no processing
+        if (!_isUiOpen)
+        {
+            PluginLog.Debug("GetMarePairedPlayers() called while UI closed - returning empty list");
+            return [];
+        }
+
+        // Only process when UI is open
         if (DateTime.UtcNow - _lastMareCacheUpdateTime < _mareCacheDuration)
         {
             _cachedMarePairedPlayers.RemoveAll(c => !c.IsValid());
             return _cachedMarePairedPlayers;
         }
 
+        PluginLog.Debug("GetMarePairedPlayers() refreshing cache while UI is open");
+        return RefreshMarePairedPlayers();
+    }
+
+    public List<ICharacter> RefreshMarePairedPlayers()
+    {
         PluginLog.Debug("Refreshing Mare paired players cache.");
         _lastMareCacheUpdateTime = DateTime.UtcNow;
 
@@ -337,8 +370,30 @@ public class IpcManager : IDisposable
             );
         }
 
-        _cachedMarePairedPlayers = result;
-        return result;
+        // Only update cache if the list has actually changed (optimization)
+        if (!ArePlayerListsEqual(_cachedMarePairedPlayers, result))
+        {
+            PluginLog.Debug($"Mare player list changed: {_cachedMarePairedPlayers.Count} -> {result.Count} players");
+            _cachedMarePairedPlayers = result;
+        }
+        else
+        {
+            PluginLog.Debug("Mare player list unchanged - using cached version");
+        }
+
+        return _cachedMarePairedPlayers;
+    }
+
+    private static bool ArePlayerListsEqual(List<ICharacter> list1, List<ICharacter> list2)
+    {
+        if (list1.Count != list2.Count)
+            return false;
+
+        // Compare by address since that's the unique identifier
+        var addresses1 = list1.Select(c => c.Address).OrderBy(a => a).ToList();
+        var addresses2 = list2.Select(c => c.Address).OrderBy(a => a).ToList();
+
+        return addresses1.SequenceEqual(addresses2);
     }
 
     public object? GetCharacterDataFromMare(ICharacter character)
