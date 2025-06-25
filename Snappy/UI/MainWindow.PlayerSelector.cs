@@ -291,7 +291,7 @@ public partial class MainWindow
                     {
                         var p = CharacterFactory.Convert(Svc.Objects[i]);
                         if (p == null)
-                            break;
+                            continue;
                         DrawGPoseSelectable(p, i);
                     }
                 }
