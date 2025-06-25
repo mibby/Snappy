@@ -1,15 +1,17 @@
-# Snappy 0.3
+# Snappy 0.3.x
 
-### A forked plugin originally based on work by @eqbot, @ViviAshe and @astrodoobs.
+### A fork of a forked plugin originally based on work by @eqbot, @ViviAshe, @astrodoobs, & @BeSlightly.
 
 A plugin for saving/loading the current appearance of a character and all applied mods
 
 ### Repository URL
 
+**It is not recommended you use this fork if the upstream version is available and updated. This is a custom fork with experimental (and probably broken) changes + fixes specific to my needs.**
+
 0.3.0 is a major change and currently only available from this new repo. </br>
 Please do not update if you don't know what you are doing and wait for stuff to be tested properly. </br>
 Before updating, make sure to backup your snapshots. </br>
-`https://github.com/BeSlightly/Snappy/raw/main/repo.json`
+`https://raw.githubusercontent.com/mibby/Snappy/main/data/pluginmaster.json`
 
 ### How to use it:
 1. **Set a working directory** in the bottom left of the plugin window </br>(if none is set, snapshots will automatically save to the pluginConfigs/Snappy folder).
@@ -27,4 +29,4 @@ Before updating, make sure to backup your snapshots. </br>
 - Find a way to handle multiple mods existing for the same item
 - Bug fixes
 
-### Outside of API bumps (API 13 + Mare/Penumbra changes) I will not maintain this actively. </br>When astrodoobs finds time to maintain his fork again this fork will  stop receiving updates.
+### Outside of API bumps (API 13 + Mare/Penumbra changes) I will not maintain this actively. </br>When astrodoobs finds time to maintain his fork again this fork will stop receiving updates.
