@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Numerics;
 using Dalamud.Interface;
 using Dalamud.Interface.Colors;
@@ -127,7 +128,10 @@ public class ConfigWindow : Window, IDisposable
             try
             {
                 var collections = _plugin.IpcManager.GetCollections();
-                foreach (var collection in collections)
+                // Sort collections alphabetically by name
+                var sortedCollections = collections.OrderBy(c => c.Value).ToList();
+
+                foreach (var collection in sortedCollections)
                 {
                     var isSelected = customCollectionName == collection.Value;
                     if (ImGui.Selectable(collection.Value, isSelected))

@@ -395,9 +395,13 @@ public class PenumbraIpc : IDisposable
                             var storageField = collectionManagerType.GetField("Storage", BindingFlags.Public | BindingFlags.Instance);
                             var storage = storageField?.GetValue(collectionManager);
 
-                            if (storage != null)
+                            // Get the Caches field from CollectionManager to force cache creation
+                            var cachesField = collectionManagerType.GetField("Caches", BindingFlags.Public | BindingFlags.Instance);
+                            var cacheManager = cachesField?.GetValue(collectionManager);
+
+                            if (storage != null && cacheManager != null)
                             {
-                                PluginLog.Debug("Found CollectionStorage");
+                                PluginLog.Debug("Found CollectionStorage and CacheManager");
 
                                 // Get the ByName method from CollectionStorage
                                 var storageType = storage.GetType();
@@ -415,9 +419,75 @@ public class PenumbraIpc : IDisposable
                                     {
                                         PluginLog.Debug($"Found Penumbra ModCollection object for '{customCollectionName}'");
 
-                                        // Get the ResolvedFiles property
+                                        // Check if the collection has a cache, if not, create one
                                         var modCollectionType = collection.GetType();
+                                        var hasCacheProperty = modCollectionType.GetProperty("HasCache", BindingFlags.Public | BindingFlags.Instance);
                                         var resolvedFilesProperty = modCollectionType.GetProperty("ResolvedFiles", BindingFlags.NonPublic | BindingFlags.Instance);
+                                        var hasCache = hasCacheProperty?.GetValue(collection) as bool? ?? false;
+
+                                        // Always try to ensure the collection has a proper cache, even if HasCache returns true
+                                        // This is because unfocusing a collection in Penumbra can invalidate the cache
+                                        PluginLog.Debug($"Ensuring collection '{customCollectionName}' has a valid cache...");
+
+                                        // Check if the collection is loaded by testing the public API first
+                                        var collectionIdProperty = modCollectionType.GetProperty("Identity");
+                                        var identity = collectionIdProperty?.GetValue(collection);
+                                        var idProperty = identity?.GetType().GetProperty("Id");
+                                        var collectionId = idProperty?.GetValue(identity);
+
+                                        if (collectionId is Guid guid)
+                                        {
+                                            // Test if collection is loaded using public API
+                                            var testChangedItems = GetChangedItemsForCollection(guid);
+                                            PluginLog.Debug($"Collection load test: {testChangedItems.Count} items returned");
+
+                                            // If the public API returns 0 items, the collection might be unloaded
+                                            // In this case, we'll skip the internal cache approach and rely on mod settings
+                                            if (testChangedItems.Count == 0)
+                                            {
+                                                PluginLog.Debug($"Collection '{customCollectionName}' appears to be unloaded, will use mod settings approach");
+                                            }
+                                        }
+
+                                        // Get the CreateCache method from CacheManager
+                                        var cacheManagerType = cacheManager.GetType();
+                                        var createCacheMethod = cacheManagerType.GetMethod("CreateCache", BindingFlags.Public | BindingFlags.Instance);
+                                        var calculateMethod = cacheManagerType.GetMethod("CalculateEffectiveFileList", BindingFlags.Public | BindingFlags.Instance);
+
+                                        if (createCacheMethod != null && calculateMethod != null)
+                                        {
+                                            // Always try to create/refresh the cache
+                                            var cacheCreated = createCacheMethod.Invoke(cacheManager, [collection]) as bool? ?? false;
+                                            PluginLog.Debug($"Cache creation/refresh result: {cacheCreated}");
+
+                                            // Always calculate the effective file list to ensure it's up to date
+                                            PluginLog.Debug("Calculating effective file list for collection...");
+                                            calculateMethod.Invoke(cacheManager, [collection]);
+                                            PluginLog.Debug("Effective file list calculation completed");
+
+                                            // Check if ResolvedFiles is populated after calculation
+                                            var resolvedFilesAfterCalculation = resolvedFilesProperty?.GetValue(collection);
+                                            PluginLog.Debug($"ResolvedFiles after calculation: null={resolvedFilesAfterCalculation == null}");
+
+                                            // Check if ResolvedFiles is empty (not just null)
+                                            int resolvedFilesCount = 0;
+                                            if (resolvedFilesAfterCalculation != null)
+                                            {
+                                                // Get the count of items in the ResolvedFiles dictionary
+                                                var countProperty = resolvedFilesAfterCalculation.GetType().GetProperty("Count");
+                                                if (countProperty != null)
+                                                {
+                                                    resolvedFilesCount = (int)(countProperty.GetValue(resolvedFilesAfterCalculation) ?? 0);
+                                                    PluginLog.Debug($"ResolvedFiles count after calculation: {resolvedFilesCount}");
+                                                }
+                                            }
+                                        }
+                                        else
+                                        {
+                                            PluginLog.Debug("Could not find CreateCache or CalculateEffectiveFileList methods");
+                                        }
+
+                                        // Now try to get the ResolvedFiles property
                                         var resolvedFiles = resolvedFilesProperty?.GetValue(collection);
 
                                         if (resolvedFiles != null)
@@ -470,7 +540,39 @@ public class PenumbraIpc : IDisposable
                                         }
                                         else
                                         {
-                                            PluginLog.Debug($"Collection '{customCollectionName}' has no cache/ResolvedFiles");
+                                            PluginLog.Debug($"Collection '{customCollectionName}' still has no ResolvedFiles after cache creation attempt");
+                                            PluginLog.Debug("Attempting fallback approach using public API...");
+
+                                            // FALLBACK: Use public API to get collection data
+                                            var fallbackCollectionIdProperty = modCollectionType.GetProperty("Identity");
+                                            var fallbackIdentity = fallbackCollectionIdProperty?.GetValue(collection);
+                                            var fallbackIdProperty = fallbackIdentity?.GetType().GetProperty("Id");
+                                            var fallbackCollectionId = fallbackIdProperty?.GetValue(fallbackIdentity);
+
+                                            if (fallbackCollectionId is Guid fallbackGuid)
+                                            {
+                                                PluginLog.Debug($"Using public API fallback for collection ID: {fallbackGuid}");
+
+                                                // Use the public GetChangedItemsForCollection API
+                                                var collectionChangedItems = GetChangedItemsForCollection(fallbackGuid);
+                                                PluginLog.Debug($"Public API returned {collectionChangedItems.Count} changed items");
+
+                                                foreach (var item in collectionChangedItems)
+                                                {
+                                                    if (item.Value != null)
+                                                    {
+                                                        // The changed items contain file redirections
+                                                        customMods[item.Key] = item.Value.ToString() ?? "";
+                                                        PluginLog.Verbose($"Found file redirection via public API: {item.Key} => {item.Value}");
+                                                    }
+                                                }
+
+                                                PluginLog.Debug($"Fallback approach found {customMods.Count} file redirections");
+                                            }
+                                            else
+                                            {
+                                                PluginLog.Debug("Could not get collection ID for fallback approach");
+                                            }
                                         }
                                     }
                                     else
@@ -485,7 +587,7 @@ public class PenumbraIpc : IDisposable
                             }
                             else
                             {
-                                PluginLog.Debug("Could not get CollectionStorage from CollectionManager");
+                                PluginLog.Debug("Could not get CollectionStorage or CacheManager from CollectionManager");
                             }
                         }
                         else

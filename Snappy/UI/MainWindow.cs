@@ -607,14 +607,22 @@ public partial class MainWindow : Window, IDisposable
         ImGui.Spacing();
 
         // Collection selector
-        if (ImGui.BeginCombo("Collection to Apply", _selectedCollectionToMerge ?? "Select Collection"))
+        if (ImGui.BeginCombo("Collection to Apply", string.IsNullOrEmpty(_selectedCollectionToMerge) ? "None" : _selectedCollectionToMerge))
         {
+            // Add "None" option
+            if (ImGui.Selectable("None", string.IsNullOrEmpty(_selectedCollectionToMerge)))
+            {
+                _selectedCollectionToMerge = string.Empty;
+            }
+
             // Get all collections from Penumbra
             try
             {
                 var collections = _plugin.IpcManager.GetCollections();
+                // Sort collections alphabetically by name
+                var sortedCollections = collections.OrderBy(c => c.Value).ToList();
 
-                foreach (var collection in collections)
+                foreach (var collection in sortedCollections)
                 {
                     var isSelected = _selectedCollectionToMerge == collection.Value;
                     if (ImGui.Selectable(collection.Value, isSelected))
@@ -638,19 +646,56 @@ public partial class MainWindow : Window, IDisposable
 
         var hasValidCollection = !string.IsNullOrEmpty(_selectedCollectionToMerge);
 
-        if (ImGui.Button("Apply Collection Override", new Vector2(200, 0)) && hasValidCollection)
+        if (ImGui.Button("Apply Collection Override", new Vector2(200, 0)))
         {
-            _plugin.IpcManager.MergeCollectionWithTemporary(
-                _objIdxSelected.Value,
-                _selectedCollectionToMerge!);
+            if (hasValidCollection)
+            {
+                // Apply the selected collection
+                _plugin.IpcManager.MergeCollectionWithTemporary(
+                    _objIdxSelected.Value,
+                    _selectedCollectionToMerge!);
+            }
+            else
+            {
+                // Remove collection override and reapply just the snapshot (when "None" is selected)
+                var activeSnapshot = ActiveSnapshots.FirstOrDefault(s => s.ObjectIndex == _objIdxSelected.Value);
+                if (activeSnapshot != null)
+                {
+                    // Get the stored snapshot data for this actor
+                    var storedSnapshotData = _plugin.IpcManager._penumbra.GetStoredSnapshotData(_objIdxSelected.Value);
+                    if (storedSnapshotData != null)
+                    {
+                        // Get the current manipulation string
+                        var manipulationString = _plugin.IpcManager.GetMetaManipulations(_objIdxSelected.Value);
+
+                        // Remove the current temporary collection
+                        _plugin.IpcManager.PenumbraRemoveTemporaryCollection(_objIdxSelected.Value);
+
+                        // Reapply just the snapshot without any collection override
+                        _plugin.IpcManager.PenumbraSetTempMods(
+                            _player,
+                            _objIdxSelected.Value,
+                            storedSnapshotData,
+                            manipulationString
+                        );
+                    }
+                }
+            }
 
             // Refresh the actor to apply changes immediately
             _plugin.IpcManager._penumbra.Redraw(_objIdxSelected.Value);
         }
 
-        if (!hasValidCollection && ImGui.IsItemHovered())
+        if (ImGui.IsItemHovered())
         {
-            ImGui.SetTooltip("Select a collection first");
+            if (hasValidCollection)
+            {
+                ImGui.SetTooltip($"Apply '{_selectedCollectionToMerge}' collection on top of the snapshot");
+            }
+            else
+            {
+                ImGui.SetTooltip("Remove any existing collection override (revert to snapshot only)");
+            }
         }
 
         ImGui.SameLine();
