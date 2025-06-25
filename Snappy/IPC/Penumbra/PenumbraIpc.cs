@@ -249,7 +249,7 @@ public class PenumbraIpc : IDisposable
         return !Check() ? new Dictionary<Guid, string>() : _getCollections.Invoke();
     }
 
-    public List<(Guid Id, string Name)> GetCollectionsByIdentifier(string? identifier)
+    public List<(Guid Id, string Name)> GetCollectionsByIdentifier(string identifier)
     {
         return !Check() ? [] : _getCollectionsByIdentifier.Invoke(identifier);
     }
