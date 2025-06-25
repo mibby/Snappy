@@ -17,9 +17,9 @@
         "IsHide": "false",
         "IsTestingExclusive": "false",
         "AcceptsFeedback": "false",
-        "LastUpdate": "1750649446",
-        "DownloadLinkInstall": "https://github.com/mibby/Snappy/releases/download/0.2.1.7/latest.zip",
-        "DownloadLinkTesting": "https://github.com/mibby/Snappy/releases/download/0.2.1.7/latest.zip",
-        "DownloadLinkUpdate": "https://github.com/mibby/Snappy/releases/download/0.2.1.7/latest.zip"
+        "LastUpdate": "1750822751",
+        "DownloadLinkInstall": "https://github.com/mibby/Snappy/releases/download/0.3.0/latest.zip",
+        "DownloadLinkTesting": "https://github.com/mibby/Snappy/releases/download/0.3.0/latest.zip",
+        "DownloadLinkUpdate": "https://github.com/mibby/Snappy/releases/download/0.3.0/latest.zip"
     }
 ]
