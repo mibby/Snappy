@@ -2,7 +2,7 @@ using ECommons.Configuration;
 
 namespace Snappy;
 
-public class Configuration : IEzConfig
+public class Configuration
 {
     public int Version { get; set; } = 0;
 
