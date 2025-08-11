@@ -2,7 +2,6 @@ using Dalamud.Game.ClientState.Objects.Types;
 using Dalamud.Utility;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Scene;
 using FFXIVClientStructs.FFXIV.Client.System.Resource;
-using ImGuiNET;
 using Newtonsoft.Json;
 using Penumbra.String;
 using Snappy.Interop;
@@ -285,7 +284,7 @@ namespace Snappy.Managers
             }
         }
 
-        private string CreateCustomizePlusTemplate(string profileJson, string characterName)
+        internal string CreateCustomizePlusTemplate(string profileJson, string characterName)
         {
             const byte templateVersionByte = 4;
 

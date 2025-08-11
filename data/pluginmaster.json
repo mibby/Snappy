@@ -3,7 +3,7 @@
         "Author": "eqbot, ViviAshe, astrodoobs, BeSlightly",
         "Name": "Snappy",
         "InternalName": "snappy",
-        "AssemblyVersion": "0.2.1.7",
+        "AssemblyVersion": "0.2.1.11",
         "Punchline": "Plugin to save current appearance and applied mods of a character.",
         "Description": "Want to export your character and mods exactly as-is in a single collection *without* Mare? This plugin saves and loads your character's current appearance, and allows you to share modded characters without relying on MCDF.",
         "ApplicableVersion": "any",

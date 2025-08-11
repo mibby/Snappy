@@ -1,6 +1,6 @@
+using Dalamud.Bindings.ImGui;
 using Dalamud.Game.ClientState.Objects.Types;
 using Dalamud.Interface.Windowing;
-using ImGuiNET;
 using Snappy.Managers;
 using System;
 using System.Collections.Generic;
