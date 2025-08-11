@@ -1,8 +1,8 @@
-﻿<Project Sdk="Dalamud.NET.Sdk/12.0.2">
+﻿<Project Sdk="Dalamud.NET.Sdk/13.0.0">
   <PropertyGroup>
     <Authors>eqbot, ViviAshe, astrodoobs, BeSlightly</Authors>
     <Company></Company>
-    <Version>0.3.2</Version>
+    <Version>0.3.3</Version>
     <Description>Snappy</Description>
     <Copyright></Copyright>
     <PackageProjectUrl>https://github.com/BeSlightly/Snappy</PackageProjectUrl>
@@ -44,17 +44,17 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\ECommons\ECommons\ECommons.csproj" />
     <ProjectReference Include="..\Glamourer.Api\Glamourer.Api.csproj" />
     <ProjectReference Include="..\Penumbra\Penumbra.GameData\Penumbra.GameData.csproj" />
     <ProjectReference Include="..\Penumbra\Penumbra\Penumbra.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Lumina" Version="6.3.0" />
-    <PackageReference Include="Lumina.Excel" Version="7.2.3" />
+    <PackageReference Include="ECommons" Version="3.0.1.5" />
+    <PackageReference Include="Lumina" Version="6.5.0" />
+    <PackageReference Include="Lumina.Excel" Version="7.3.1" />
     <PackageReference Include="lz4net" Version="1.0.15.93" />
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.3" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.0-preview.6.25358.103" />
   </ItemGroup>
 
   <ItemGroup>
@@ -68,14 +68,6 @@
     </Reference>
     <Reference Include="Dalamud">
       <HintPath>$(DalamudLibPath)Dalamud.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="ImGui.NET">
-      <HintPath>$(DalamudLibPath)ImGui.NET.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="ImGuiScene">
-      <HintPath>$(DalamudLibPath)ImGuiScene.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="Lumina">
